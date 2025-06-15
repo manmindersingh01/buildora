@@ -47,13 +47,17 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
 const promt_1 = require("./defaults/promt");
+const child_process_1 = require("child_process");
+require("dotenv/config");
 const fs = __importStar(require("fs"));
 const express_1 = __importDefault(require("express"));
 const path_1 = __importDefault(require("path"));
 const anthropic = new sdk_1.default();
 const app = (0, express_1.default)();
+const adm_zip_1 = __importDefault(require("adm-zip"));
 const cors_1 = __importDefault(require("cors"));
 const classes_1 = require("./defaults/classes");
+const supabase_js_1 = require("@supabase/supabase-js");
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
 const pro = "You are an expert web developer creating modern websites using React, TypeScript, and Tailwind CSS. Generate clean, focused website code based on user prompts.\n" +
@@ -251,6 +255,7 @@ const pro = "You are an expert web developer creating modern websites using Reac
     "✅ Valid JSON response with files array and structureTree\n" +
     "\n" +
     "Generate focused, professional websites that accomplish the user's goals efficiently. Prioritize clarity and usability over extensive content unless specifically requested. ALWAYS follow the data fetching and error prevention rules to avoid runtime errors. ALWAYS provide files in the specified format and organization.";
+const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 app.post("/generatebackend", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { prompt } = req.body;
     try {
@@ -418,6 +423,61 @@ app.post("/modify", (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         res.json(result);
     }
     catch (error) { }
+}));
+app.get("/zipFolder", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const zip = new adm_zip_1.default();
+        const baseDir = path_1.default.join(__dirname, "../react-base");
+        zip.addLocalFolder(baseDir);
+        const outDir = path_1.default.join(__dirname, "../generated-sites", "proj123.zip");
+        zip.writeZip(outDir);
+        const zipData = fs.readFileSync(outDir);
+        const { data, error } = yield supabase.storage
+            .from("zipprojects")
+            .upload("archives/proj123.zip", zipData, {
+            contentType: "application/zip",
+            upsert: true,
+        });
+        if (error) {
+            console.log("supabase error ", error);
+        }
+        const publicUrl = yield supabase.storage
+            .from("zipprojects")
+            .getPublicUrl("proj123.zip");
+        const url = JSON.stringify(publicUrl);
+        res.json(`done with zipping the file and sending to supabase publicUrl:
+      ${url}`);
+    }
+    catch (error) {
+        console.log(error);
+        res.json(error);
+    }
+}));
+app.post("/buildrun", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { zipUrl } = req.body;
+    console.log(`Received zipUrl: ${zipUrl}`);
+    // Step 1: Build the Docker image
+    (0, child_process_1.exec)(`docker build --build-arg ZIP_URL="${zipUrl}" -t react-builder .`, { cwd: path_1.default.resolve(__dirname, "../") }, // Run from /creating_code directory
+    (err, stdout, stderr) => {
+        if (err) {
+            console.error("❌ Build failed:", stderr);
+            return res.status(500).json({ error: "Build failed", details: stderr });
+        }
+        console.log("✅ Build completed. Output:");
+        console.log(stdout);
+        // Step 2: Run the Docker container and save the output
+        const outputPath = path_1.default.resolve(__dirname, "../output");
+        (0, child_process_1.exec)(`docker run --rm -v "${outputPath}:/app/dist" react-builder`, (err, stdout, stderr) => {
+            if (err) {
+                console.error("❌ Run failed:", stderr);
+                return res
+                    .status(500)
+                    .json({ error: "Run failed", details: stderr });
+            }
+            console.log("✅ Build output is in /creating_code/output");
+            res.json({ message: "Build completed successfully", outputPath });
+        });
+    });
 }));
 app.listen(3000, () => {
     console.log("Server is running on port 3000");

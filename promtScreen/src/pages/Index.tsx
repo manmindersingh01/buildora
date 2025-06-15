@@ -1,13 +1,14 @@
 import { useContext, useState } from "react";
 import axios from "axios";
 
-import { parseApiData } from "../utils/backendcodeParser";
+//import { parseApiData } from "../utils/backendcodeParser";
 import { parseFrontendCode } from "../utils/newParserWithst";
 import { MyContext } from "../context/FrontendStructureContext";
 
 const Index = () => {
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
   const { value, setValue } = useContext(MyContext);
 
   const handleSubmit = async () => {
@@ -67,7 +68,8 @@ const Index = () => {
       await axios.post("http://localhost:3000/write-files", {
         files: parsedFrontend.codeFiles,
       });
-
+     const res =   await axios.get("http://localhost:3000/zipFolder")
+     console.log(res.data)
       setIsLoading(false);
     } catch (error) {
       console.error("Error:", error);

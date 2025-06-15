@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { BackendSystemPrompt, systemPrompt } from "./defaults/promt";
 import { Stream } from "@anthropic-ai/sdk/core/streaming";
+import { exec } from "child_process";
 import "dotenv/config";
 import * as fs from "fs";
 import express from "express";
@@ -13,6 +14,7 @@ import { FileContentParser } from "./defaults/classes";
 import { createClient } from "@supabase/supabase-js";
 app.use(cors());
 app.use(express.json());
+
 const pro =
   "You are an expert web developer creating modern websites using React, TypeScript, and Tailwind CSS. Generate clean, focused website code based on user prompts.\n" +
   "\n" +
@@ -403,7 +405,7 @@ app.get("/zipFolder", async (req, res) => {
     const zip = new AdmZip();
     const baseDir = path.join(__dirname, "../react-base");
     zip.addLocalFolder(baseDir);
-    const outDir = path.join(__dirname, "../generated-sites" , "proj123.zip" );
+    const outDir = path.join(__dirname, "../generated-sites", "proj123.zip");
     zip.writeZip(outDir);
     const zipData = fs.readFileSync(outDir);
     const { data, error } = await supabase.storage
@@ -412,14 +414,61 @@ app.get("/zipFolder", async (req, res) => {
         contentType: "application/zip",
         upsert: true,
       });
-   const publicUrl = await supabase.storage.from("zipprojects").getPublicUrl("proj123.zip")
-    
-
-    res.json("done with zipping the file and sending to supabase ");
+    if (error) {
+      console.log("supabase error ", error);
+    }
+    const publicUrl = await supabase.storage
+      .from("zipprojects")
+      .getPublicUrl("proj123.zip");
+    const url = JSON.stringify(publicUrl);
+    res.json(
+      `done with zipping the file and sending to supabase publicUrl:
+      ${url}`
+    );
   } catch (error) {
     console.log(error);
     res.json(error);
   }
+});
+
+app.post("/buildrun", async (req, res) => {
+  const { zipUrl } = req.body;
+
+  console.log(`Received zipUrl: ${zipUrl}`);
+
+  // Step 1: Build the Docker image
+  exec(
+    `docker build --build-arg ZIP_URL="${zipUrl}" -t react-builder .`,
+    { cwd: path.resolve(__dirname, "../") }, // Run from /creating_code directory
+    (err, stdout, stderr) => {
+      if (err) {
+        console.error("❌ Build failed:", stderr);
+        return res.status(500).json({ error: "Build failed", details: stderr });
+      }
+
+      console.log("✅ Build completed. Output:");
+      console.log(stdout);
+
+      // Step 2: Run the Docker container and save the output
+      const outputPath = path.resolve(__dirname, "../output");
+      exec(
+        `docker run --rm -v "${outputPath}:/app/dist" react-builder`,
+        (err, stdout, stderr) => {
+          if (err) {
+            console.error("❌ Run failed:", stderr);
+            return res
+              .status(500)
+              .json({ error: "Run failed", details: stderr });
+          }
+
+          console.log("✅ Build output is in /creating_code/output");
+          res.json({ message: "Build completed successfully", outputPath });
+        }
+      );
+    }
+  );
+
+ 
 });
 
 app.listen(3000, () => {
@@ -432,5 +481,3 @@ app.listen(3000, () => {
 //   console.log("Response has been saved to claude-response.json");
 // }
 // main();
-
-
