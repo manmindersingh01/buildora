@@ -1,6 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { BackendSystemPrompt, systemPrompt } from "./defaults/promt";
 import { Stream } from "@anthropic-ai/sdk/core/streaming";
+import { IntelligentFileModifier } from './services/filemodifier';
+import * as parser from '@babel/parser';
+import traverse from '@babel/traverse';
 import "dotenv/config";
 import * as fs from "fs";
 import express from "express";
@@ -333,28 +336,63 @@ app.post("/write-files", (req, res) => {
 
 app.post("/generateChanges", async (req, res) => {
   const { prompt } = req.body;
+  
   try {
-    const result = await anthropic.messages.create({
-      model: "claude-3-7-sonnet-latest",
-      max_tokens: 15000,
-      temperature: 1,
-      system:
-        "you are a helpful ai assistant that responce with only the things that is requested dont add any other thing no explanation nothing ",
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: prompt,
-            },
-          ],
+    console.log(`🚀 8-Step Modification Workflow: "${prompt}"`);
+    
+    // Path to your react-base-temp folder
+    const reactBasePath = path.join(__dirname, "../react-base");
+    
+    const intelligentModifier = new IntelligentFileModifier(anthropic, reactBasePath);
+    const result = await intelligentModifier.processModification(prompt);
+    
+    if (result.success) {
+      console.log(`✅ 8-Step workflow completed successfully!`);
+      console.log(`📁 Modified files: ${result.selectedFiles?.join(', ')}`);
+      console.log(`🎯 Approach: ${result.approach}`);
+      console.log(`📊 Code ranges modified: ${result.modifiedRanges?.length || 0}`);
+      
+      // Return detailed workflow results
+      res.json({
+        success: true,
+        workflow: "8-step-ast-modification",
+        selectedFiles: result.selectedFiles,
+        approach: result.approach,
+        modifiedRanges: result.modifiedRanges?.length || 0,
+        details: {
+          step1: "Project tree + metadata analyzed",
+          step2: `Claude selected ${result.selectedFiles?.length || 0} relevant files`,
+          step3: "Files parsed with AST to create detailed trees", 
+          step4: "Claude pinpointed exact AST nodes needing modification",
+          step5: "Code snippets extracted from target nodes",
+          step6: "Claude modified the specific code snippets",
+          step7: "Mapped AST nodes to exact source code ranges",
+          step8: "Replaced code ranges with modified snippets"
         },
-      ],
-    });
-    res.json(result);
+        modifications: result.modifiedRanges?.map(range => ({
+          file: range.file,
+          linesModified: `${range.range.startLine}-${range.range.endLine}`,
+          originalCode: range.range.originalCode.substring(0, 100) + "...", // Preview
+          modifiedCode: range.modifiedCode.substring(0, 100) + "..." // Preview
+        }))
+      });
+    } else {
+      console.log(`❌ 8-Step workflow failed: ${result.error}`);
+      res.status(400).json({
+        success: false,
+        workflow: "8-step-ast-modification",
+        error: result.error || 'Modification workflow failed',
+        step: "Failed during workflow execution"
+      });
+    }
   } catch (error) {
-    console.log(error);
+    console.error('Error in 8-step workflow:', error);
+    res.status(500).json({
+      success: false,
+      workflow: "8-step-ast-modification", 
+      error: 'Internal server error during workflow',
+      step: "System error"
+    });
   }
 });
 
