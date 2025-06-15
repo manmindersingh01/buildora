@@ -29,10 +29,9 @@ class IntelligentFileModifier {
             const srcPath = (0, path_1.join)(this.reactBasePath, 'src');
             try {
                 yield fs_1.promises.access(srcPath);
-                console.log(`📁 Building project tree from: ${srcPath}`);
             }
             catch (error) {
-                console.error(`❌ src directory not found: ${srcPath}`);
+                console.log('No src directory found');
                 return;
             }
             const scanDir = (dir_1, ...args_1) => __awaiter(this, [dir_1, ...args_1], void 0, function* (dir, relativePath = '') {
@@ -50,11 +49,10 @@ class IntelligentFileModifier {
                     }
                 }
                 catch (error) {
-                    console.error(`❌ Error scanning directory ${dir}:`, error);
+                    console.log(`Error scanning directory ${dir}:`, error);
                 }
             });
             yield scanDir(srcPath);
-            console.log(`✅ Project tree built. Found ${this.projectFiles.size} React files.`);
         });
     }
     // Analyze individual file for metadata
@@ -63,7 +61,6 @@ class IntelligentFileModifier {
             try {
                 // Skip UI components folder
                 if (relativePath.includes('components/ui/') || relativePath.includes('components\\ui\\')) {
-                    console.log(`⏭️ Skipping UI component: ${relativePath}`);
                     return;
                 }
                 const content = yield fs_1.promises.readFile(filePath, 'utf8');
@@ -83,104 +80,93 @@ class IntelligentFileModifier {
                     isMainFile: this.isMainFile(filePath, content)
                 };
                 this.projectFiles.set(projectFile.relativePath, projectFile);
-                console.log(`📄 Analyzed: ${projectFile.relativePath} (${lines.length} lines, buttons: ${projectFile.hasButtons}, signin: ${projectFile.hasSignin})`);
             }
             catch (error) {
-                console.error(`Failed to analyze file ${relativePath}:`, error);
+                console.log(`Error analyzing file ${filePath}:`, error);
             }
         });
     }
     // Fallback: Go through all files one by one to find relevant content
     fallbackFileSearch(prompt) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log(`🔍 FALLBACK: No files identified by Claude, searching all files one by one...`);
-            console.log(`📁 Searching through ${this.projectFiles.size} files for: "${prompt}"`);
             if (this.projectFiles.size === 0) {
-                console.log('❌ No files to search through');
                 return { files: [], scope: 'TARGETED_NODES' };
             }
             const searchTerms = prompt.toLowerCase().split(' ');
             const matches = [];
-            console.log(`🔎 Searching for terms: ${searchTerms.join(', ')}`);
             for (const [relativePath, file] of this.projectFiles.entries()) {
                 let score = 0;
                 const fileContentLower = file.content.toLowerCase();
-                console.log(`\n📄 Checking: ${relativePath}`);
-                console.log(`   - Has buttons: ${file.hasButtons}`);
-                console.log(`   - Has signin: ${file.hasSignin}`);
-                console.log(`   - Is main file: ${file.isMainFile}`);
                 // Score based on prompt keywords
+                function escapeRegExp(string) {
+                    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                }
                 searchTerms.forEach(term => {
-                    const contentMatches = (fileContentLower.match(new RegExp(term, 'g')) || []).length;
+                    const contentMatches = (fileContentLower.match(new RegExp(escapeRegExp(term), 'g')) || []).length;
                     if (contentMatches > 0) {
                         score += contentMatches * 10;
-                        console.log(`   - Found '${term}' ${contentMatches} times in content (+${contentMatches * 10})`);
                     }
                     if (file.name.toLowerCase().includes(term)) {
                         score += 20;
-                        console.log(`   - Found '${term}' in filename (+20)`);
                     }
                 });
                 // Boost score for relevant content
                 if (prompt.includes('signin') || prompt.includes('login') || prompt.includes('sign in')) {
-                    if (file.hasSignin) {
+                    if (file.hasSignin)
                         score += 50;
-                        console.log(`   - Has signin content (+50)`);
-                    }
-                    if (file.hasButtons) {
+                    if (file.hasButtons)
                         score += 25;
-                        console.log(`   - Has buttons (+25)`);
-                    }
                 }
                 if (prompt.includes('button')) {
-                    if (file.hasButtons) {
+                    if (file.hasButtons)
                         score += 40;
-                        console.log(`   - Has buttons for button request (+40)`);
-                    }
                 }
                 // Boost main files
-                if (file.isMainFile) {
+                if (file.isMainFile)
                     score += 10;
-                    console.log(`   - Is main file (+10)`);
-                }
-                console.log(`   - Total score: ${score}`);
                 if (score > 0) {
                     matches.push({ file, score });
                 }
             }
             if (matches.length > 0) {
-                // Sort by score and take top matches
                 matches.sort((a, b) => b.score - a.score);
-                const topMatches = matches.slice(0, 3); // Take top 3 files
+                const topMatches = matches.slice(0, 3);
                 const files = topMatches.map(m => m.file.relativePath);
-                console.log(`\n✅ Fallback found ${files.length} matching files:`);
-                files.forEach(f => console.log(`   - ${f}`));
-                // Determine scope based on prompt
                 const scope = this.determineScope(prompt);
-                console.log(`🎯 Determined scope: ${scope}`);
                 return { files, scope };
             }
-            console.log('❌ No matching files found in fallback search');
             return { files: [], scope: 'TARGETED_NODES' };
         });
     }
-    // Determine scope based on prompt
+    // Determine scope based on prompt - FIXED to prefer TARGETED_NODES
     determineScope(prompt) {
-        const fullFileKeywords = [
-            'dark mode', 'theme', 'layout', 'design', 'style', 'ui',
-            'redesign', 'rework', 'complete', 'entire', 'all',
-            'comprehensive', 'overhaul', 'modernize'
+        const promptLower = prompt.toLowerCase();
+        // TARGETED_NODES keywords (specific changes)
+        const targetedKeywords = [
+            'button', 'color', 'text', 'size', 'font', 'border', 'padding', 'margin',
+            'background', 'hover', 'click', 'style', 'class', 'attribute',
+            'red', 'blue', 'green', 'yellow', 'white', 'black', 'gray',
+            'make', 'change', 'update', 'modify', 'fix', 'add', 'remove'
         ];
-        const isFullFileScope = fullFileKeywords.some(keyword => prompt.toLowerCase().includes(keyword));
-        return isFullFileScope ? 'FULL_FILE' : 'TARGETED_NODES';
+        // FULL_FILE keywords (comprehensive changes)
+        const fullFileKeywords = [
+            'dark mode', 'theme', 'layout', 'design overhaul', 'redesign',
+            'rework', 'complete', 'entire', 'all', 'comprehensive', 'overhaul',
+            'modernize', 'responsive', 'mobile layout', 'structure'
+        ];
+        // Check for full file keywords first
+        const hasFullFileKeywords = fullFileKeywords.some(keyword => promptLower.includes(keyword));
+        if (hasFullFileKeywords) {
+            return 'FULL_FILE';
+        }
+        // Default to TARGETED_NODES for specific changes
+        return 'TARGETED_NODES';
     }
     // STEP 3: Handle full file modification
     handleFullFileModification(prompt, filePath) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log(`🔄 FULL_FILE modification for ${filePath}...`);
             const file = this.projectFiles.get(filePath);
             if (!file) {
-                console.error(`File not found: ${filePath}`);
                 return false;
             }
             const claudePrompt = `
@@ -205,6 +191,11 @@ ${file.content}
                     temperature: 0,
                     messages: [{ role: 'user', content: claudePrompt }],
                 });
+                // FIXED: Better error handling for response
+                if (!response.content || response.content.length === 0) {
+                    console.log('No response content received from Claude');
+                    return false;
+                }
                 const firstBlock = response.content[0];
                 if ((firstBlock === null || firstBlock === void 0 ? void 0 : firstBlock.type) === 'text') {
                     const text = firstBlock.text;
@@ -212,14 +203,13 @@ ${file.content}
                     if (codeMatch) {
                         const modifiedContent = codeMatch[1].trim();
                         yield fs_1.promises.writeFile(file.path, modifiedContent, 'utf8');
-                        console.log(`💾 Saved full file modification: ${filePath}`);
                         return true;
                     }
                 }
                 return false;
             }
             catch (error) {
-                console.error(`Error in full file modification for ${filePath}:`, error);
+                console.log('Error in handleFullFileModification:', error);
                 return false;
             }
         });
@@ -258,11 +248,9 @@ ${file.content}
         });
         sortedFiles.forEach(file => {
             summary += `**${file.relativePath}**\n`;
-            summary += `- Size: ${file.size} bytes, ${file.lines} lines\n`;
             summary += `- Component: ${file.componentName || 'Unknown'}\n`;
             summary += `- Has buttons: ${file.hasButtons ? 'Yes' : 'No'}\n`;
             summary += `- Has signin: ${file.hasSignin ? 'Yes' : 'No'}\n`;
-            summary += `- Is main file: ${file.isMainFile ? 'Yes' : 'No'}\n`;
             summary += `- Code preview:\n\`\`\`\n${file.snippet}\n\`\`\`\n\n`;
         });
         return summary;
@@ -270,7 +258,6 @@ ${file.content}
     // STEP 2: Claude analyzes project tree to determine relevant files AND scope
     identifyRelevantFiles(prompt) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log(`🤖 STEP 2: Claude analyzing project tree AND determining scope for: "${prompt}"`);
             const projectSummary = this.buildProjectSummary();
             const claudePrompt = `
 You are analyzing a React project to determine which files need modification AND the scope of changes.
@@ -284,46 +271,38 @@ ${projectSummary}
 2. **CRITICALLY IMPORTANT**: Determine the modification scope based on the request
 
 **Scope Guidelines (VERY IMPORTANT):**
-- **FULL_FILE**: Use when request involves:
-  * Dark mode, theme changes, color scheme overhauls
-  * Layout changes, design changes, comprehensive styling
-  * Complete redesigns, modernization, overhauls
-  * Adding responsive design, mobile layouts
-  * Structural changes affecting entire components
-  * Any request mentioning "entire", "all", "complete", "comprehensive"
-
-- **TARGETED_NODES**: Use when request involves:
-  * Specific button colors (e.g., "make signin button red")
-  * Individual text changes
-  * Single element modifications
-  * Small styling tweaks to specific elements
+- **TARGETED_NODES**: Use for MOST requests involving:
+  * Specific element changes (button colors, text changes, styling)
+  * Individual component modifications
   * Adding/removing specific attributes
+  * Color changes, size changes, font changes
+  * Hover effects, click handlers
+  * ANY specific element styling or behavior
 
-**File Selection Guidelines:**
-- For signin/login requests: Look for files with signin content
-- For button styling: Look for files with buttons  
-- For layout/theme changes: Focus on main app files
-- You can select multiple files if the change affects multiple components
-- NEVER select files from components/ui/ folder (these are UI library components)
+- **FULL_FILE**: Use ONLY when request involves:
+  * Complete redesigns, overhauls, or "rework entire file"
+  * Adding comprehensive features like dark mode themes
+  * Structural layout changes affecting entire components
+  * Converting entire components to different frameworks
+  * Requests explicitly mentioning "entire", "complete", "comprehensive"
 
 **Examples:**
 - "make signin button red" → TARGETED_NODES
+- "change button color to blue" → TARGETED_NODES  
+- "add hover effect to button" → TARGETED_NODES
+- "change text color" → TARGETED_NODES
 - "add dark mode theme" → FULL_FILE
-- "change layout to modern design" → FULL_FILE
-- "make header responsive" → FULL_FILE
-- "change text color of welcome message" → TARGETED_NODES
+- "redesign entire component" → FULL_FILE
 
 **Response Format:** Return ONLY this JSON:
 \`\`\`json
 {
-  "files": ["src/App.tsx", "src/components/LoginForm.tsx"],
-  "scope": "FULL_FILE"
+  "files": ["src/App.tsx"],
+  "scope": "TARGETED_NODES"
 }
 \`\`\`
 
-**CRITICAL**: Pay special attention to scope determination - this controls the entire workflow!
-
-Return ONLY the JSON, no explanations.
+**DEFAULT TO TARGETED_NODES** unless clearly a full file change is needed.
     `.trim();
             try {
                 const response = yield this.anthropic.messages.create({
@@ -332,38 +311,39 @@ Return ONLY the JSON, no explanations.
                     temperature: 0,
                     messages: [{ role: 'user', content: claudePrompt }],
                 });
+                // FIXED: Better error handling for response
+                if (!response.content || response.content.length === 0) {
+                    console.log('No response content received from Claude for file identification');
+                    return { files: [], scope: 'TARGETED_NODES' };
+                }
                 const firstBlock = response.content[0];
                 if ((firstBlock === null || firstBlock === void 0 ? void 0 : firstBlock.type) === 'text') {
                     const text = firstBlock.text;
                     const jsonMatch = text.match(/```json\n([\s\S]*?)```/);
                     if (jsonMatch) {
-                        const result = JSON.parse(jsonMatch[1]);
-                        console.log(`🎯 Claude selected files: ${result.files.join(', ')}`);
-                        console.log(`📋 Claude determined scope: ${result.scope}`);
-                        // Log reasoning for scope decision
-                        if (result.scope === 'FULL_FILE') {
-                            console.log(`🔄 FULL_FILE approach: Will send complete file content to Claude for comprehensive modification`);
+                        try {
+                            const result = JSON.parse(jsonMatch[1]);
+                            return result;
                         }
-                        else {
-                            console.log(`🎯 TARGETED_NODES approach: Will use AST to find specific elements to modify`);
+                        catch (parseError) {
+                            console.log('Error parsing JSON response:', parseError);
+                            console.log('Raw response:', text);
+                            return { files: [], scope: 'TARGETED_NODES' };
                         }
-                        return result;
                     }
                 }
                 return { files: [], scope: 'TARGETED_NODES' };
             }
             catch (error) {
-                console.error('Error in file identification:', error);
+                console.log('Error in identifyRelevantFiles:', error);
                 return { files: [], scope: 'TARGETED_NODES' };
             }
         });
     }
     // STEP 3: Parse selected files with AST to produce detailed trees
     parseFileWithAST(filePath) {
-        console.log(`🔧 STEP 3: Parsing ${filePath} with AST...`);
         const file = this.projectFiles.get(filePath);
         if (!file) {
-            console.error(`File not found: ${filePath}`);
             return [];
         }
         try {
@@ -426,18 +406,16 @@ Return ONLY the JSON, no explanations.
                     });
                 }
             });
-            console.log(`📊 Found ${nodes.length} AST nodes in ${filePath}`);
             return nodes;
         }
         catch (error) {
-            console.error(`Error parsing ${filePath}:`, error);
+            console.log(`Error parsing AST for ${filePath}:`, error);
             return [];
         }
     }
     // STEP 4: Claude pinpoints exact AST nodes needing modification
     identifyTargetNodes(prompt, filePath, nodes) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log(`🎯 STEP 4: Claude identifying target nodes in ${filePath}...`);
             const nodesPreview = nodes.map(node => `**${node.id}:** <${node.tagName}> "${node.textContent}" (lines ${node.startLine}-${node.endLine})${node.isButton ? ' [BUTTON]' : ''}${node.hasSigninText ? ' [SIGNIN]' : ''}`).join('\n');
             const claudePrompt = `
 **User Request:** "${prompt}"
@@ -467,21 +445,48 @@ If no nodes need changes, return: []
                     temperature: 0,
                     messages: [{ role: 'user', content: claudePrompt }],
                 });
+                // FIXED: Better error handling for response
+                if (!response.content || response.content.length === 0) {
+                    console.log('No response content received from Claude for node identification');
+                    return [];
+                }
                 const firstBlock = response.content[0];
                 if ((firstBlock === null || firstBlock === void 0 ? void 0 : firstBlock.type) === 'text') {
                     const text = firstBlock.text;
-                    const match = text.match(/\[(.*?)\]/);
-                    if (match) {
-                        const nodeIds = JSON.parse(`[${match[1]}]`);
-                        const targetNodes = nodes.filter(node => nodeIds.includes(node.id));
-                        console.log(`🎯 Claude selected ${targetNodes.length} target nodes: ${nodeIds.join(', ')}`);
-                        return targetNodes;
+                    // FIXED: Better JSON parsing
+                    const jsonMatch = text.match(/```json\n([\s\S]*?)```/);
+                    if (jsonMatch) {
+                        try {
+                            const nodeIds = JSON.parse(jsonMatch[1]);
+                            const targetNodes = nodes.filter(node => nodeIds.includes(node.id));
+                            return targetNodes;
+                        }
+                        catch (parseError) {
+                            console.log('Error parsing node IDs:', parseError);
+                            console.log('Raw response:', text);
+                            return [];
+                        }
+                    }
+                    else {
+                        // Try to extract array from response text
+                        const arrayMatch = text.match(/\[(.*?)\]/);
+                        if (arrayMatch) {
+                            try {
+                                const nodeIds = JSON.parse(`[${arrayMatch[1]}]`);
+                                const targetNodes = nodes.filter(node => nodeIds.includes(node.id));
+                                return targetNodes;
+                            }
+                            catch (parseError) {
+                                console.log('Error parsing array match:', parseError);
+                                return [];
+                            }
+                        }
                     }
                 }
                 return [];
             }
             catch (error) {
-                console.error('Error identifying target nodes:', error);
+                console.log('Error in identifyTargetNodes:', error);
                 return [];
             }
         });
@@ -489,7 +494,6 @@ If no nodes need changes, return: []
     // STEP 5-6: Extract code snippets and send to Claude for modification
     modifyCodeSnippets(prompt, targetNodes) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log(`✏️ STEP 6: Claude modifying ${targetNodes.length} code snippets...`);
             const snippetsInfo = targetNodes.map(node => `**${node.id}:** (lines ${node.startLine}-${node.endLine})
 \`\`\`jsx
 ${node.codeSnippet}
@@ -523,24 +527,35 @@ ${snippetsInfo}
                     temperature: 0,
                     messages: [{ role: 'user', content: claudePrompt }],
                 });
+                // FIXED: Better error handling for response
+                if (!response.content || response.content.length === 0) {
+                    console.log('No response content received from Claude for code modification');
+                    return new Map();
+                }
                 const firstBlock = response.content[0];
                 if ((firstBlock === null || firstBlock === void 0 ? void 0 : firstBlock.type) === 'text') {
                     const text = firstBlock.text;
                     const jsonMatch = text.match(/```json\n([\s\S]*?)```/);
                     if (jsonMatch) {
-                        const modifications = JSON.parse(jsonMatch[1]);
-                        const modMap = new Map();
-                        for (const [nodeId, modifiedCode] of Object.entries(modifications)) {
-                            modMap.set(nodeId, modifiedCode);
+                        try {
+                            const modifications = JSON.parse(jsonMatch[1]);
+                            const modMap = new Map();
+                            for (const [nodeId, modifiedCode] of Object.entries(modifications)) {
+                                modMap.set(nodeId, modifiedCode);
+                            }
+                            return modMap;
                         }
-                        console.log(`✅ Received ${modMap.size} code modifications`);
-                        return modMap;
+                        catch (parseError) {
+                            console.log('Error parsing modifications JSON:', parseError);
+                            console.log('Raw response:', text);
+                            return new Map();
+                        }
                     }
                 }
                 return new Map();
             }
             catch (error) {
-                console.error('Error modifying code snippets:', error);
+                console.log('Error in modifyCodeSnippets:', error);
                 return new Map();
             }
         });
@@ -548,10 +563,8 @@ ${snippetsInfo}
     // STEP 7-8: Replace exact code ranges with modified snippets
     applyModifications(filePath, targetNodes, modifications) {
         return __awaiter(this, void 0, void 0, function* () {
-            console.log(`🔄 STEP 8: Applying modifications to ${filePath}...`);
             const file = this.projectFiles.get(filePath);
             if (!file) {
-                console.error(`File not found: ${filePath}`);
                 return false;
             }
             let modifiedContent = file.content;
@@ -567,17 +580,15 @@ ${snippetsInfo}
                     const endIndex = node.endLine - 1;
                     const newLines = modifiedCode.split('\n');
                     lines.splice(startIndex, endIndex - startIndex + 1, ...newLines);
-                    console.log(`  ✅ Replaced ${node.id} (lines ${node.startLine}-${node.endLine})`);
                 }
             }
             modifiedContent = lines.join('\n');
             try {
                 yield fs_1.promises.writeFile(file.path, modifiedContent, 'utf8');
-                console.log(`💾 Saved modified file: ${filePath}`);
                 return true;
             }
             catch (error) {
-                console.error(`Failed to save ${filePath}:`, error);
+                console.log('Error writing modified file:', error);
                 return false;
             }
         });
@@ -586,27 +597,36 @@ ${snippetsInfo}
     processModification(prompt) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                console.log(`🚀 Starting 8-step modification workflow for: "${prompt}"`);
                 // STEP 1: Build project file tree + metadata
+                console.log('Step 1: Building project tree...');
                 yield this.buildProjectTree();
                 if (this.projectFiles.size === 0) {
                     return { success: false, error: 'No React files found in project' };
                 }
+                console.log(`Found ${this.projectFiles.size} React files`);
                 // STEP 2: Claude analyzes project tree to determine relevant files + scope
+                console.log('Step 2: Identifying relevant files...');
                 let fileAnalysis = yield this.identifyRelevantFiles(prompt);
                 // FALLBACK: If no files identified, search all files one by one
                 if (fileAnalysis.files.length === 0) {
-                    console.log(`⚠️ No files identified by Claude, triggering fallback search...`);
+                    console.log('Fallback: Searching all files...');
                     fileAnalysis = yield this.fallbackFileSearch(prompt);
                 }
                 if (fileAnalysis.files.length === 0) {
-                    return { success: false, error: 'No relevant files found even after fallback search' };
+                    return {
+                        success: false,
+                        error: 'No relevant files found',
+                        debug: {
+                            totalFiles: this.projectFiles.size,
+                            fileList: Array.from(this.projectFiles.keys())
+                        }
+                    };
                 }
                 const { files: relevantFiles, scope } = fileAnalysis;
-                console.log(`📋 Processing ${relevantFiles.length} files with ${scope} approach`);
+                console.log(`Found ${relevantFiles.length} relevant files with scope: ${scope}`);
                 // Handle based on scope
                 if (scope === 'FULL_FILE') {
-                    console.log(`🔄 Using FULL_FILE approach for comprehensive changes...`);
+                    console.log('Processing full file modifications...');
                     let successCount = 0;
                     for (const filePath of relevantFiles) {
                         const success = yield this.handleFullFileModification(prompt, filePath);
@@ -637,32 +657,36 @@ ${snippetsInfo}
                 }
                 else {
                     // TARGETED_NODES approach - continue with AST workflow
-                    console.log(`🎯 Using TARGETED_NODES approach for precise changes...`);
+                    console.log('Processing targeted node modifications...');
                     const modifiedRanges = [];
                     // Process each relevant file with AST
                     for (const filePath of relevantFiles) {
-                        console.log(`\n🔄 Processing file: ${filePath}`);
+                        console.log(`Processing file: ${filePath}`);
                         // STEP 3: Parse file with AST to produce detailed trees
                         const astNodes = this.parseFileWithAST(filePath);
                         if (astNodes.length === 0) {
-                            console.log(`⚠️ No AST nodes found in ${filePath}`);
+                            console.log(`No AST nodes found in ${filePath}`);
                             continue;
                         }
+                        console.log(`Found ${astNodes.length} AST nodes in ${filePath}`);
                         // STEP 4: Claude pinpoints exact AST nodes needing modification
                         const targetNodes = yield this.identifyTargetNodes(prompt, filePath, astNodes);
                         if (targetNodes.length === 0) {
-                            console.log(`⚠️ No target nodes identified in ${filePath}`);
+                            console.log(`No target nodes identified in ${filePath}`);
                             continue;
                         }
+                        console.log(`Identified ${targetNodes.length} target nodes in ${filePath}`);
                         // STEP 5-6: Extract code snippets and send to Claude for modification
                         const modifications = yield this.modifyCodeSnippets(prompt, targetNodes);
                         if (modifications.size === 0) {
-                            console.log(`⚠️ No modifications received for ${filePath}`);
+                            console.log(`No modifications generated for ${filePath}`);
                             continue;
                         }
+                        console.log(`Generated ${modifications.size} modifications for ${filePath}`);
                         // STEP 7-8: Replace exact code ranges with modified snippets
                         const success = yield this.applyModifications(filePath, targetNodes, modifications);
                         if (success) {
+                            console.log(`Successfully applied modifications to ${filePath}`);
                             // Record the modifications
                             for (const node of targetNodes) {
                                 if (modifications.has(node.id)) {
@@ -680,10 +704,11 @@ ${snippetsInfo}
                                 }
                             }
                         }
+                        else {
+                            console.log(`Failed to apply modifications to ${filePath}`);
+                        }
                     }
                     if (modifiedRanges.length > 0) {
-                        console.log(`\n🎉 Successfully completed 8-step workflow!`);
-                        console.log(`📊 Modified ${modifiedRanges.length} code ranges across ${relevantFiles.length} files`);
                         return {
                             success: true,
                             selectedFiles: relevantFiles,
@@ -692,15 +717,26 @@ ${snippetsInfo}
                         };
                     }
                     else {
-                        return { success: false, error: 'No AST modifications were successfully applied' };
+                        return {
+                            success: false,
+                            error: 'No modifications were successfully applied',
+                            debug: {
+                                relevantFiles: relevantFiles,
+                                scope: scope
+                            }
+                        };
                     }
                 }
             }
             catch (error) {
-                console.error('Error in modification workflow:', error);
+                console.log('Error in processModification:', error);
                 return {
                     success: false,
-                    error: error instanceof Error ? error.message : 'Unknown error'
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                    debug: {
+                        stack: error instanceof Error ? error.stack : undefined,
+                        projectFiles: this.projectFiles.size
+                    }
                 };
             }
         });

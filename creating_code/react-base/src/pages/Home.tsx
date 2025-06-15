@@ -111,7 +111,7 @@ export const Home: React.FC = () => {
             Welcome to my place, where you can enjoy a cozy atmosphere and great company
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="bg-white text-black hover:bg-gray-200 px-8 py-3 text-lg">
+            <Button size="lg" className="bg-red-600 text-white hover:bg-red-700 px-8 py-3 text-lg">
               Order Now
             </Button>
             <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-black px-8 py-3 text-lg">
@@ -167,7 +167,7 @@ export const Home: React.FC = () => {
           </div>
           
           <div className="text-center mt-12">
-            <Button size="lg" className="bg-white text-black hover:bg-gray-200">
+            <Button size="lg" className="bg-red-600 text-white hover:bg-red-700">
               View Full Menu
             </Button>
           </div>
@@ -295,7 +295,7 @@ export const Home: React.FC = () => {
               <Truck className="h-12 w-12 text-white mx-auto mb-4" />
               <h3 className="text-2xl font-bold mb-4">Free Delivery</h3>
               <p className="text-gray-400 mb-6">On orders over $25 within 5 miles</p>
-              <Button className="bg-white text-black hover:bg-gray-200">
+              <Button className="bg-red-600 text-white hover:bg-red-700">
                 Order for Delivery
               </Button>
             </div>

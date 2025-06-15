@@ -16,6 +16,7 @@ interface ModificationResult {
         modifiedCode: string;
     }>;
     error?: string;
+    debug?: any;
 }
 export declare class IntelligentFileModifier {
     private anthropic;

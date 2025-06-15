@@ -49,7 +49,7 @@ PROJECT STRUCTURE: ${JSON.stringify(value, null, 2)}` +
     const filesToChange = await axios.post(
       "http://localhost:3000/extractFilesToChange",
       {
-        pwd: "/Users/manmindersingh/Desktop/code /ai-webisite-builder/react-base-temp",
+        pwd: "C:/Users/KIIT/Documents/Lovable/Lovable/buildora/creating_code/react-base/src",
         analysisResult: data,
       }
     );
@@ -70,7 +70,7 @@ PROJECT STRUCTURE: ${JSON.stringify(value, null, 2)}` +
 
     await axios.post("http://localhost:3000/write-files", {
       baseDir:
-        "/Users/manmindersingh/Desktop/code /ai-webisite-builder/react-base-temp",
+        "C:/Users/KIIT/Documents/Lovable/Lovable/buildora/creating_code/react-base/src",
       files: result,
     });
   };

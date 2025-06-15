@@ -364,7 +364,6 @@ app.post("/generateChanges", (req, res) => __awaiter(void 0, void 0, void 0, fun
     const { prompt } = req.body;
     try {
         console.log(`🚀 8-Step Modification Workflow: "${prompt}"`);
-        // Path to your react-base-temp folder
         const reactBasePath = path_1.default.join(__dirname, "../react-base");
         const intelligentModifier = new filemodifier_1.IntelligentFileModifier(anthropic, reactBasePath);
         const result = yield intelligentModifier.processModification(prompt);
@@ -373,7 +372,6 @@ app.post("/generateChanges", (req, res) => __awaiter(void 0, void 0, void 0, fun
             console.log(`📁 Modified files: ${(_a = result.selectedFiles) === null || _a === void 0 ? void 0 : _a.join(', ')}`);
             console.log(`🎯 Approach: ${result.approach}`);
             console.log(`📊 Code ranges modified: ${((_b = result.modifiedRanges) === null || _b === void 0 ? void 0 : _b.length) || 0}`);
-            // Return detailed workflow results
             res.json({
                 success: true,
                 workflow: "8-step-ast-modification",

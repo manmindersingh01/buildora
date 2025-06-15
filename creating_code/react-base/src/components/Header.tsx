@@ -16,24 +16,24 @@ export const Header: React.FC = () => {
         <div className="flex justify-between items-center py-4">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <div className="bg-gradient-to-r from-orange-600 to-red-600 p-2 rounded-full">
+            <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-2 rounded-full">
               <Pizza className="h-6 w-6 text-white" />
             </div>
-<span className="text-2xl font-bold text-gray-800">My Place</span>
+            <span className="text-2xl font-bold text-gray-800">Kizza Place</span>
           </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link to="/" className="text-gray-700 hover:text-orange-600 font-medium transition-colors">
+            <Link to="/" className="text-gray-700 hover:text-purple-600 font-medium transition-colors">
               Home
             </Link>
-            <Link to="/menu" className="text-gray-700 hover:text-orange-600 font-medium transition-colors">
+            <Link to="/menu" className="text-gray-700 hover:text-purple-600 font-medium transition-colors">
               Menu
             </Link>
-            <Link to="/about" className="text-gray-700 hover:text-orange-600 font-medium transition-colors">
+            <Link to="/about" className="text-gray-700 hover:text-purple-600 font-medium transition-colors">
               About
             </Link>
-            <Link to="/contact" className="text-gray-700 hover:text-orange-600 font-medium transition-colors">
+            <Link to="/contact" className="text-gray-700 hover:text-purple-600 font-medium transition-colors">
               Contact
             </Link>
           </nav>
@@ -42,16 +42,16 @@ export const Header: React.FC = () => {
           <div className="hidden md:flex items-center space-x-4">
             <div className="flex items-center space-x-2 text-gray-700">
               <Phone className="h-4 w-4" />
-              <span className="text-sm font-medium">(555) 123-PIZZA</span>
+              <span className="text-sm font-medium">(555) 123-KIZZA</span>
             </div>
             <Button variant="outline" size="sm" className="relative">
               <ShoppingCart className="h-4 w-4 mr-2" />
               Cart
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+              <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                 0
               </span>
             </Button>
-            <Button className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700">
+            <Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
               Order Now
             </Button>
           </div>
@@ -76,28 +76,28 @@ export const Header: React.FC = () => {
             <nav className="flex flex-col space-y-4">
               <Link 
                 to="/" 
-                className="text-gray-700 hover:text-orange-600 font-medium transition-colors px-2 py-1"
+                className="text-gray-700 hover:text-purple-600 font-medium transition-colors px-2 py-1"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Home
               </Link>
               <Link 
                 to="/menu" 
-                className="text-gray-700 hover:text-orange-600 font-medium transition-colors px-2 py-1"
+                className="text-gray-700 hover:text-purple-600 font-medium transition-colors px-2 py-1"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Menu
               </Link>
               <Link 
                 to="/about" 
-                className="text-gray-700 hover:text-orange-600 font-medium transition-colors px-2 py-1"
+                className="text-gray-700 hover:text-purple-600 font-medium transition-colors px-2 py-1"
                 onClick={() => setIsMenuOpen(false)}
               >
                 About
               </Link>
               <Link 
                 to="/contact" 
-                className="text-gray-700 hover:text-orange-600 font-medium transition-colors px-2 py-1"
+                className="text-gray-700 hover:text-purple-600 font-medium transition-colors px-2 py-1"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Contact
@@ -105,17 +105,17 @@ export const Header: React.FC = () => {
               <div className="pt-4 border-t border-gray-200">
                 <div className="flex items-center space-x-2 text-gray-700 mb-4 px-2">
                   <Phone className="h-4 w-4" />
-                  <span className="text-sm font-medium">(555) 123-PIZZA</span>
+                  <span className="text-sm font-medium">(555) 123-KIZZA</span>
                 </div>
                 <div className="space-y-2 px-2">
                   <Button variant="outline" size="sm" className="w-full relative">
                     <ShoppingCart className="h-4 w-4 mr-2" />
                     Cart
-                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                       0
                     </span>
                   </Button>
-                  <Button className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700">
+                  <Button className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
                     Order Now
                   </Button>
                 </div>

@@ -160,8 +160,12 @@ export class IntelligentFileModifier {
       console.log(`   - Is main file: ${file.isMainFile}`);
       
       // Score based on prompt keywords
+      function escapeRegExp(string :string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
       searchTerms.forEach(term => {
-        const contentMatches = (fileContentLower.match(new RegExp(term, 'g')) || []).length;
+        const contentMatches = (fileContentLower.match(new RegExp(escapeRegExp(term), 'g')) || []).length;
         if (contentMatches > 0) {
           score += contentMatches * 10;
           console.log(`   - Found '${term}' ${contentMatches} times in content (+${contentMatches * 10})`);
