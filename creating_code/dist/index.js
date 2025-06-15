@@ -47,13 +47,17 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
 const promt_1 = require("./defaults/promt");
+const filemodifier_1 = require("./services/filemodifier");
+require("dotenv/config");
 const fs = __importStar(require("fs"));
 const express_1 = __importDefault(require("express"));
 const path_1 = __importDefault(require("path"));
 const anthropic = new sdk_1.default();
 const app = (0, express_1.default)();
+const adm_zip_1 = __importDefault(require("adm-zip"));
 const cors_1 = __importDefault(require("cors"));
 const classes_1 = require("./defaults/classes");
+const supabase_js_1 = require("@supabase/supabase-js");
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
 const pro = "You are an expert web developer creating modern websites using React, TypeScript, and Tailwind CSS. Generate clean, focused website code based on user prompts.\n" +
@@ -251,6 +255,7 @@ const pro = "You are an expert web developer creating modern websites using Reac
     "✅ Valid JSON response with files array and structureTree\n" +
     "\n" +
     "Generate focused, professional websites that accomplish the user's goals efficiently. Prioritize clarity and usability over extensive content unless specifically requested. ALWAYS follow the data fetching and error prevention rules to avoid runtime errors. ALWAYS provide files in the specified format and organization.";
+const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 app.post("/generatebackend", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { prompt } = req.body;
     try {
@@ -355,29 +360,62 @@ app.post("/write-files", (req, res) => {
     console.log("created all files ");
 });
 app.post("/generateChanges", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c, _d, _e;
     const { prompt } = req.body;
     try {
-        const result = yield anthropic.messages.create({
-            model: "claude-3-7-sonnet-latest",
-            max_tokens: 15000,
-            temperature: 1,
-            system: "you are a helpful ai assistant that responce with only the things that is requested dont add any other thing no explanation nothing ",
-            messages: [
-                {
-                    role: "user",
-                    content: [
-                        {
-                            type: "text",
-                            text: prompt,
-                        },
-                    ],
+        console.log(`🚀 8-Step Modification Workflow: "${prompt}"`);
+        // Path to your react-base-temp folder
+        const reactBasePath = path_1.default.join(__dirname, "../react-base");
+        const intelligentModifier = new filemodifier_1.IntelligentFileModifier(anthropic, reactBasePath);
+        const result = yield intelligentModifier.processModification(prompt);
+        if (result.success) {
+            console.log(`✅ 8-Step workflow completed successfully!`);
+            console.log(`📁 Modified files: ${(_a = result.selectedFiles) === null || _a === void 0 ? void 0 : _a.join(', ')}`);
+            console.log(`🎯 Approach: ${result.approach}`);
+            console.log(`📊 Code ranges modified: ${((_b = result.modifiedRanges) === null || _b === void 0 ? void 0 : _b.length) || 0}`);
+            // Return detailed workflow results
+            res.json({
+                success: true,
+                workflow: "8-step-ast-modification",
+                selectedFiles: result.selectedFiles,
+                approach: result.approach,
+                modifiedRanges: ((_c = result.modifiedRanges) === null || _c === void 0 ? void 0 : _c.length) || 0,
+                details: {
+                    step1: "Project tree + metadata analyzed",
+                    step2: `Claude selected ${((_d = result.selectedFiles) === null || _d === void 0 ? void 0 : _d.length) || 0} relevant files`,
+                    step3: "Files parsed with AST to create detailed trees",
+                    step4: "Claude pinpointed exact AST nodes needing modification",
+                    step5: "Code snippets extracted from target nodes",
+                    step6: "Claude modified the specific code snippets",
+                    step7: "Mapped AST nodes to exact source code ranges",
+                    step8: "Replaced code ranges with modified snippets"
                 },
-            ],
-        });
-        res.json(result);
+                modifications: (_e = result.modifiedRanges) === null || _e === void 0 ? void 0 : _e.map(range => ({
+                    file: range.file,
+                    linesModified: `${range.range.startLine}-${range.range.endLine}`,
+                    originalCode: range.range.originalCode.substring(0, 100) + "...", // Preview
+                    modifiedCode: range.modifiedCode.substring(0, 100) + "..." // Preview
+                }))
+            });
+        }
+        else {
+            console.log(`❌ 8-Step workflow failed: ${result.error}`);
+            res.status(400).json({
+                success: false,
+                workflow: "8-step-ast-modification",
+                error: result.error || 'Modification workflow failed',
+                step: "Failed during workflow execution"
+            });
+        }
     }
     catch (error) {
-        console.log(error);
+        console.error('Error in 8-step workflow:', error);
+        res.status(500).json({
+            success: false,
+            workflow: "8-step-ast-modification",
+            error: 'Internal server error during workflow',
+            step: "System error"
+        });
     }
 }));
 app.post("/extractFilesToChange", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -419,6 +457,28 @@ app.post("/modify", (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     }
     catch (error) { }
 }));
+app.get("/zipFolder", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const zip = new adm_zip_1.default();
+        const baseDir = path_1.default.join(__dirname, "../react-base");
+        zip.addLocalFolder(baseDir);
+        const outDir = path_1.default.join(__dirname, "../generated-sites", "proj123.zip");
+        zip.writeZip(outDir);
+        const zipData = fs.readFileSync(outDir);
+        const { data, error } = yield supabase.storage
+            .from("zipprojects")
+            .upload("archives/proj123.zip", zipData, {
+            contentType: "application/zip",
+            upsert: true,
+        });
+        const publicUrl = yield supabase.storage.from("zipprojects").getPublicUrl("proj123.zip");
+        res.json("done with zipping the file and sending to supabase ");
+    }
+    catch (error) {
+        console.log(error);
+        res.json(error);
+    }
+}));
 app.listen(3000, () => {
     console.log("Server is running on port 3000");
 });
@@ -428,3 +488,4 @@ app.listen(3000, () => {
 //   console.log("Response has been saved to claude-response.json");
 // }
 // main();
+//# sourceMappingURL=index.js.map
