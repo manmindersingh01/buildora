@@ -19,7 +19,7 @@ export const Header: React.FC = () => {
             <div className="bg-gradient-to-r from-orange-600 to-red-600 p-2 rounded-full">
               <Pizza className="h-6 w-6 text-white" />
             </div>
-            <span className="text-2xl font-bold text-gray-800">Bella Pizza</span>
+<span className="text-2xl font-bold text-gray-800">My Place</span>
           </Link>
 
           {/* Desktop Navigation */}

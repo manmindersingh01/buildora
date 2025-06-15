@@ -90,31 +90,31 @@ export const Home: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-50 to-red-50">
+    <div className="min-h-screen bg-black text-white">
       <Header />
       
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-r from-orange-600 via-red-600 to-orange-700 text-white py-20">
-        <div className="absolute inset-0 bg-black/20"></div>
+      <section className="relative bg-gray-900 py-20">
+        <div className="absolute inset-0 bg-black/50"></div>
         <div className="relative container mx-auto px-4 text-center">
           <h1 className="text-5xl md:text-7xl font-bold mb-6">
-            Authentic Italian Pizza
+            My Place
           </h1>
           <p className="text-xl md:text-2xl mb-8 max-w-2xl mx-auto">
-            Hand-tossed, wood-fired pizzas made with the finest ingredients and traditional recipes
+            Welcome to my place, where you can enjoy a cozy atmosphere and great company
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="bg-white text-orange-600 hover:bg-orange-50 px-8 py-3 text-lg">
+            <Button size="lg" className="bg-white text-black hover:bg-gray-200 px-8 py-3 text-lg">
               Order Now
             </Button>
-            <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-orange-600 px-8 py-3 text-lg">
+            <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-black px-8 py-3 text-lg">
               View Menu
             </Button>
           </div>
@@ -122,40 +122,40 @@ export const Home: React.FC = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-16 bg-white">
+      <section className="py-16 bg-gray-900">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-3 gap-8">
             <div className="text-center">
-              <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Clock className="h-8 w-8 text-orange-600" />
+              <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Clock className="h-8 w-8 text-black" />
               </div>
               <h3 className="text-xl font-semibold mb-2">Fast Delivery</h3>
-              <p className="text-gray-600">Hot and fresh pizzas delivered in 30 minutes or less</p>
+              <p className="text-gray-400">Hot and fresh pizzas delivered in 30 minutes or less</p>
             </div>
             <div className="text-center">
-              <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <ChefHat className="h-8 w-8 text-red-600" />
+              <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <ChefHat className="h-8 w-8 text-black" />
               </div>
               <h3 className="text-xl font-semibold mb-2">Expert Chefs</h3>
-              <p className="text-gray-600">Trained in traditional Italian pizza-making techniques</p>
+              <p className="text-gray-400">Trained in traditional Italian pizza-making techniques</p>
             </div>
             <div className="text-center">
-              <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Award className="h-8 w-8 text-green-600" />
+              <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Award className="h-8 w-8 text-black" />
               </div>
               <h3 className="text-xl font-semibold mb-2">Quality Ingredients</h3>
-              <p className="text-gray-600">Fresh, locally sourced ingredients for the perfect taste</p>
+              <p className="text-gray-400">Fresh, locally sourced ingredients for the perfect taste</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Featured Pizzas */}
-      <section className="py-16 bg-gradient-to-b from-gray-50 to-white">
+      <section className="py-16 bg-gray-800">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-800 mb-4">Featured Pizzas</h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <h2 className="text-4xl font-bold mb-4">Featured Pizzas</h2>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
               Discover our most popular and chef-recommended pizzas
             </p>
           </div>
@@ -167,7 +167,7 @@ export const Home: React.FC = () => {
           </div>
           
           <div className="text-center mt-12">
-            <Button size="lg" className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700">
+            <Button size="lg" className="bg-white text-black hover:bg-gray-200">
               View Full Menu
             </Button>
           </div>
@@ -175,32 +175,32 @@ export const Home: React.FC = () => {
       </section>
 
       {/* About Section */}
-      <section className="py-16 bg-white">
+      <section className="py-16 bg-gray-900">
         <div className="container mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h2 className="text-4xl font-bold text-gray-800 mb-6">Our Story</h2>
-              <p className="text-lg text-gray-600 mb-6">
-                Founded in 1995, our family-owned pizzeria has been serving authentic Italian pizzas 
-                to our community for over 25 years. We use traditional recipes passed down through 
-                generations, combined with the finest local ingredients.
+              <h2 className="text-4xl font-bold mb-6">Our Story</h2>
+              <p className="text-lg text-gray-400 mb-6">
+                Established recently, my place has been a welcoming spot for friends and family 
+                to gather and enjoy good times together. We create a warm and inviting atmosphere 
+                that feels just like home.
               </p>
-              <p className="text-lg text-gray-600 mb-8">
-                Every pizza is hand-tossed and baked in our wood-fired oven, ensuring that perfect 
-                crispy crust and authentic flavor that keeps our customers coming back.
+              <p className="text-lg text-gray-400 mb-8">
+                Every visit to my place is filled with laughter, great conversations, and memorable 
+                moments that keep our guests coming back.
               </p>
               <div className="grid grid-cols-3 gap-6 text-center">
                 <div>
-                  <div className="text-3xl font-bold text-orange-600">25+</div>
-                  <div className="text-sm text-gray-600">Years Experience</div>
+                  <div className="text-3xl font-bold">25+</div>
+                  <div className="text-sm text-gray-400">Years Experience</div>
                 </div>
                 <div>
-                  <div className="text-3xl font-bold text-red-600">50K+</div>
-                  <div className="text-sm text-gray-600">Happy Customers</div>
+                  <div className="text-3xl font-bold">50K+</div>
+                  <div className="text-sm text-gray-400">Happy Customers</div>
                 </div>
                 <div>
-                  <div className="text-3xl font-bold text-green-600">15+</div>
-                  <div className="text-sm text-gray-600">Pizza Varieties</div>
+                  <div className="text-3xl font-bold">15+</div>
+                  <div className="text-sm text-gray-400">Pizza Varieties</div>
                 </div>
               </div>
             </div>
@@ -208,12 +208,12 @@ export const Home: React.FC = () => {
               <img 
                 src="https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=600&h=400&fit=crop" 
                 alt="Pizza chef preparing dough"
-                className="rounded-lg shadow-2xl"
+                className="rounded-lg shadow-2xl grayscale"
               />
-              <div className="absolute -bottom-6 -left-6 bg-orange-600 text-white p-4 rounded-lg shadow-lg">
+              <div className="absolute -bottom-6 -left-6 bg-white text-black p-4 rounded-lg shadow-lg">
                 <Users className="h-6 w-6 mb-2" />
-                <div className="text-sm font-semibold">Family Owned</div>
-                <div className="text-xs">Since 1995</div>
+                <div className="text-sm font-semibold">Friendly Environment</div>
+                <div className="text-xs">Always Welcome</div>
               </div>
             </div>
           </div>
@@ -221,33 +221,33 @@ export const Home: React.FC = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="py-16 bg-gradient-to-r from-orange-100 to-red-100">
+      <section className="py-16 bg-gray-800">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-800 mb-4">What Our Customers Say</h2>
-            <p className="text-xl text-gray-600">Don't just take our word for it</p>
+            <h2 className="text-4xl font-bold mb-4">What Our Customers Say</h2>
+            <p className="text-xl text-gray-400">Don't just take our word for it</p>
           </div>
           
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             {testimonials.length > 0 && testimonials.map((testimonial) => (
-              <Card key={testimonial.id} className="bg-white/80 backdrop-blur-sm">
+              <Card key={testimonial.id} className="bg-gray-900">
                 <CardContent className="p-6">
                   <div className="flex items-center mb-4">
                     <img 
                       src={testimonial.avatar} 
                       alt={testimonial.name}
-                      className="w-12 h-12 rounded-full mr-4"
+                      className="w-12 h-12 rounded-full mr-4 grayscale"
                     />
                     <div>
-                      <h4 className="font-semibold text-gray-800">{testimonial.name}</h4>
+                      <h4 className="font-semibold">{testimonial.name}</h4>
                       <div className="flex items-center">
                         {[...Array(testimonial.rating)].map((_, i) => (
-                          <Star key={i} className="h-4 w-4 text-yellow-400 fill-current" />
+                          <Star key={i} className="h-4 w-4 text-white fill-current" />
                         ))}
                       </div>
                     </div>
                   </div>
-                  <p className="text-gray-600 italic">"{testimonial.comment}"</p>
+                  <p className="text-gray-400 italic">"{testimonial.comment}"</p>
                 </CardContent>
               </Card>
             ))}
@@ -256,34 +256,34 @@ export const Home: React.FC = () => {
       </section>
 
       {/* Contact/Location */}
-      <section className="py-16 bg-white">
+      <section className="py-16 bg-gray-900">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-800 mb-4">Visit Us Today</h2>
-            <p className="text-xl text-gray-600">Come experience the best pizza in town</p>
+            <h2 className="text-4xl font-bold mb-4">Come Over Today</h2>
+            <p className="text-xl text-gray-400">Experience the warmth and comfort of my place</p>
           </div>
           
           <div className="grid lg:grid-cols-2 gap-12">
             <div className="space-y-6">
               <div className="flex items-start space-x-4">
-                <MapPin className="h-6 w-6 text-orange-600 mt-1" />
+                <MapPin className="h-6 w-6 text-white mt-1" />
                 <div>
-                  <h4 className="font-semibold text-gray-800 mb-1">Address</h4>
-                  <p className="text-gray-600">123 Pizza Street, Downtown<br />New York, NY 10001</p>
+                  <h4 className="font-semibold mb-1">Address</h4>
+                  <p className="text-gray-400">123 Friendly Street, Neighborhood<br />Your City, State 12345</p>
                 </div>
               </div>
               <div className="flex items-start space-x-4">
-                <Phone className="h-6 w-6 text-orange-600 mt-1" />
+                <Phone className="h-6 w-6 text-white mt-1" />
                 <div>
-                  <h4 className="font-semibold text-gray-800 mb-1">Phone</h4>
-                  <p className="text-gray-600">(555) 123-PIZZA</p>
+                  <h4 className="font-semibold mb-1">Phone</h4>
+                  <p className="text-gray-400">(555) 123-PIZZA</p>
                 </div>
               </div>
               <div className="flex items-start space-x-4">
-                <Clock className="h-6 w-6 text-orange-600 mt-1" />
+                <Clock className="h-6 w-6 text-white mt-1" />
                 <div>
-                  <h4 className="font-semibold text-gray-800 mb-1">Hours</h4>
-                  <p className="text-gray-600">
+                  <h4 className="font-semibold mb-1">Hours</h4>
+                  <p className="text-gray-400">
                     Mon-Thu: 11AM - 10PM<br />
                     Fri-Sat: 11AM - 11PM<br />
                     Sunday: 12PM - 9PM
@@ -291,11 +291,11 @@ export const Home: React.FC = () => {
                 </div>
               </div>
             </div>
-            <div className="bg-gray-100 rounded-lg p-8 text-center">
-              <Truck className="h-12 w-12 text-orange-600 mx-auto mb-4" />
-              <h3 className="text-2xl font-bold text-gray-800 mb-4">Free Delivery</h3>
-              <p className="text-gray-600 mb-6">On orders over $25 within 5 miles</p>
-              <Button className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700">
+            <div className="bg-gray-800 rounded-lg p-8 text-center">
+              <Truck className="h-12 w-12 text-white mx-auto mb-4" />
+              <h3 className="text-2xl font-bold mb-4">Free Delivery</h3>
+              <p className="text-gray-400 mb-6">On orders over $25 within 5 miles</p>
+              <Button className="bg-white text-black hover:bg-gray-200">
                 Order for Delivery
               </Button>
             </div>
