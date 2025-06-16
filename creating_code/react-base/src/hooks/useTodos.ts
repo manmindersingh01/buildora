@@ -1,119 +1,120 @@
 import { useState, useEffect } from 'react';
-import { Todo } from '@/types';
+import { Todo, TodoStats, FilterOptions } from '@/types';
 
-export const useTodos = () => {
+export function useTodos() {
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [filteredTodos, setFilteredTodos] = useState<Todo[]>([]);
+  const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load todos from localStorage on component mount
+  // Load todos from localStorage on mount
   useEffect(() => {
-    const loadTodos = () => {
-      try {
-        const savedTodos = localStorage.getItem('todos');
-        if (savedTodos) {
-          const parsedTodos = JSON.parse(savedTodos).map((todo: any) => ({
-            ...todo,
-            createdAt: new Date(todo.createdAt),
-            updatedAt: new Date(todo.updatedAt)
-          }));
-          setTodos(parsedTodos);
-        } else {
-          // Initialize with sample data
-          const sampleTodos: Todo[] = [
-            {
-              id: '1',
-              title: 'Complete project documentation',
-              description: 'Write comprehensive documentation for the new feature',
-              completed: false,
-              priority: 'high',
-              category: 'Work',
-              createdAt: new Date(),
-              updatedAt: new Date()
-            },
-            {
-              id: '2',
-              title: 'Buy groceries',
-              description: 'Milk, bread, eggs, and vegetables',
-              completed: true,
-              priority: 'medium',
-              category: 'Personal',
-              createdAt: new Date(Date.now() - 86400000),
-              updatedAt: new Date()
-            },
-            {
-              id: '3',
-              title: 'Plan weekend trip',
-              description: 'Research destinations and book accommodations',
-              completed: false,
-              priority: 'low',
-              category: 'Personal',
-              createdAt: new Date(Date.now() - 172800000),
-              updatedAt: new Date(Date.now() - 172800000)
-            }
-          ];
-          setTodos(sampleTodos);
-          localStorage.setItem('todos', JSON.stringify(sampleTodos));
-        }
-      } catch (error) {
-        console.error('Error loading todos:', error);
-        setTodos([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Simulate loading delay
-    setTimeout(loadTodos, 500);
+    const savedTodos = localStorage.getItem('todos');
+    if (savedTodos) {
+      const parsedTodos = JSON.parse(savedTodos);
+      setTodos(parsedTodos);
+      setFilteredTodos(parsedTodos);
+    }
+    setIsLoading(false);
   }, []);
 
   // Save todos to localStorage whenever todos change
   useEffect(() => {
-    if (!loading && todos.length >= 0) {
+    if (!isLoading) {
       localStorage.setItem('todos', JSON.stringify(todos));
     }
-  }, [todos, loading]);
+  }, [todos, isLoading]);
 
-  const addTodo = async (todoData: Omit<Todo, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addTodo = (todoData: Omit<Todo, 'id' | 'createdAt'>) => {
     const newTodo: Todo = {
-      id: Date.now().toString(),
       ...todoData,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString()
     };
-    
-    setTodos(prevTodos => [newTodo, ...prevTodos]);
+    setTodos(prev => [newTodo, ...prev]);
   };
 
-  const updateTodo = async (id: string, updates: Partial<Omit<Todo, 'id' | 'createdAt' | 'updatedAt'>>) => {
-    setTodos(prevTodos => 
-      prevTodos.map(todo => 
-        todo.id === id 
-          ? { ...todo, ...updates, updatedAt: new Date() }
-          : todo
-      )
-    );
+  const updateTodo = (id: string, todoData: Omit<Todo, 'id' | 'createdAt'>) => {
+    setTodos(prev => prev.map(todo => 
+      todo.id === id 
+        ? { ...todo, ...todoData }
+        : todo
+    ));
+    setEditingTodo(null);
   };
 
-  const deleteTodo = async (id: string) => {
-    setTodos(prevTodos => prevTodos.filter(todo => todo.id !== id));
+  const deleteTodo = (id: string) => {
+    setTodos(prev => prev.filter(todo => todo.id !== id));
   };
 
-  const toggleTodo = async (id: string) => {
-    setTodos(prevTodos => 
-      prevTodos.map(todo => 
-        todo.id === id 
-          ? { ...todo, completed: !todo.completed, updatedAt: new Date() }
-          : todo
-      )
-    );
+  const toggleTodo = (id: string) => {
+    setTodos(prev => prev.map(todo => 
+      todo.id === id 
+        ? { ...todo, completed: !todo.completed }
+        : todo
+    ));
+  };
+
+  const filterTodos = (filters: FilterOptions) => {
+    let filtered = [...todos];
+
+    // Filter by search term
+    if (filters.searchTerm) {
+      filtered = filtered.filter(todo => 
+        todo.title.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+        (todo.description && todo.description.toLowerCase().includes(filters.searchTerm.toLowerCase()))
+      );
+    }
+
+    // Filter by status
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(todo => 
+        filters.status === 'completed' ? todo.completed : !todo.completed
+      );
+    }
+
+    // Filter by priority
+    if (filters.priority !== 'all') {
+      filtered = filtered.filter(todo => todo.priority === filters.priority);
+    }
+
+    // Filter by category
+    if (filters.category !== 'all') {
+      filtered = filtered.filter(todo => todo.category === filters.category);
+    }
+
+    setFilteredTodos(filtered);
+  };
+
+  const getStats = (): TodoStats => {
+    const total = todos.length;
+    const completed = todos.filter(todo => todo.completed).length;
+    const pending = total - completed;
+    const overdue = todos.filter(todo => 
+      todo.dueDate && 
+      new Date(todo.dueDate) < new Date() && 
+      !todo.completed
+    ).length;
+
+    return { total, completed, pending, overdue };
+  };
+
+  const getCategories = (): string[] => {
+    const categories = Array.from(new Set(todos.map(todo => todo.category)));
+    return categories.sort();
   };
 
   return {
-    todos,
-    loading,
+    todos: filteredTodos,
+    editingTodo,
+    isLoading,
     addTodo,
     updateTodo,
     deleteTodo,
-    toggleTodo
+    toggleTodo,
+    filterTodos,
+    setEditingTodo,
+    getStats,
+    getCategories
   };
-};
+}

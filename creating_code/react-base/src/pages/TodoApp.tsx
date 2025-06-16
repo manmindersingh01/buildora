@@ -1,197 +1,172 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, CheckCircle2, Circle, Trash2, Edit3, Clock, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useState } from 'react';
+import { TodoCard } from '@/components/TodoCard';
 import { TodoForm } from '@/components/TodoForm';
-import { TodoItem } from '@/components/TodoItem';
-import { TodoStats } from '@/components/TodoStats';
+import { TodoFilters } from '@/components/TodoFilters';
+import { TodoStatsComponent } from '@/components/TodoStats';
 import { useTodos } from '@/hooks/useTodos';
-import { Todo, TodoFilters } from '@/types';
+import { FilterOptions } from '@/types';
+import { CheckSquare, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-const TodoApp: React.FC = () => {
-  const { todos, loading, addTodo, updateTodo, deleteTodo, toggleTodo } = useTodos();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState<TodoFilters>({
+export function TodoApp() {
+  const {
+    todos,
+    editingTodo,
+    isLoading,
+    addTodo,
+    updateTodo,
+    deleteTodo,
+    toggleTodo,
+    filterTodos,
+    setEditingTodo,
+    getStats,
+    getCategories
+  } = useTodos();
+
+  const [showForm, setShowForm] = useState(false);
+  const [filters, setFilters] = useState<FilterOptions>({
     status: 'all',
     priority: 'all',
-    category: 'all'
-  });
-  const [showForm, setShowForm] = useState(false);
-  const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
-
-  const filteredTodos = todos.filter(todo => {
-    const matchesSearch = todo.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (todo.description?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
-    const matchesStatus = filters.status === 'all' || 
-                         (filters.status === 'completed' && todo.completed) ||
-                         (filters.status === 'pending' && !todo.completed);
-    const matchesPriority = filters.priority === 'all' || todo.priority === filters.priority;
-    const matchesCategory = filters.category === 'all' || todo.category === filters.category;
-    
-    return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
+    category: 'all',
+    searchTerm: ''
   });
 
-  const categories = Array.from(new Set(todos.map(todo => todo.category).filter(Boolean)));
-
-  const handleAddTodo = async (todoData: Omit<Todo, 'id' | 'createdAt' | 'updatedAt'>) => {
-    await addTodo(todoData);
-    setShowForm(false);
+  const handleFiltersChange = (newFilters: FilterOptions) => {
+    setFilters(newFilters);
+    filterTodos(newFilters);
   };
 
-  const handleEditTodo = async (todoData: Omit<Todo, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleAddTodo = (todoData: Parameters<typeof addTodo>[0]) => {
+    addTodo(todoData);
+    setShowForm(false);
+    setTimeout(() => filterTodos(filters), 0);
+  };
+
+  const handleUpdateTodo = (todoData: Parameters<typeof addTodo>[0]) => {
     if (editingTodo) {
-      await updateTodo(editingTodo.id, todoData);
-      setEditingTodo(null);
+      updateTodo(editingTodo.id, todoData);
+      setTimeout(() => filterTodos(filters), 0);
     }
   };
 
-  const handleDeleteTodo = async (id: string) => {
-    await deleteTodo(id);
+  const handleEditTodo = (todo: Parameters<typeof setEditingTodo>[0]) => {
+    setEditingTodo(todo);
+    setShowForm(false);
   };
 
-  const handleToggleTodo = async (id: string) => {
-    await toggleTodo(id);
+  const handleCancelEdit = () => {
+    setEditingTodo(null);
   };
 
-  if (loading) {
+  const handleDeleteTodo = (id: string) => {
+    deleteTodo(id);
+    setTimeout(() => filterTodos(filters), 0);
+  };
+
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your todos...</p>
+          <CheckSquare className="h-12 w-12 text-black mx-auto mb-4 animate-pulse" />
+          <p className="text-lg text-gray-800">Loading your todos...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-white py-8 px-4">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Todo Master</h1>
-          <p className="text-gray-600">Organize your tasks and boost productivity</p>
+          <div className="flex items-center justify-center mb-4">
+            <CheckSquare className="h-10 w-10 text-black mr-3" />
+            <h1 className="text-4xl font-bold text-black">
+              Todo Master
+            </h1>
+          </div>
+          <p className="text-gray-800 text-lg">Organize your tasks and boost your productivity</p>
         </div>
 
         {/* Stats */}
-        <TodoStats todos={todos} />
+        <TodoStatsComponent stats={getStats()} />
 
-        {/* Controls */}
-        <Card className="mb-6">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row gap-4 mb-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Search todos..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Button onClick={() => setShowForm(true)} className="bg-red-600 hover:bg-red-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Todo
-              </Button>
-            </div>
-            
-            <div className="flex flex-col md:flex-row gap-4">
-              <Select value={filters.status} onValueChange={(value: any) => setFilters({...filters, status: value})}>
-                <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Tasks</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select value={filters.priority} onValueChange={(value: any) => setFilters({...filters, priority: value})}>
-                <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="Filter by priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priorities</SelectItem>
-                  <SelectItem value="high">High Priority</SelectItem>
-                  <SelectItem value="medium">Medium Priority</SelectItem>
-                  <SelectItem value="low">Low Priority</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select value={filters.category} onValueChange={(value: any) => setFilters({...filters, category: value})}>
-                <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="Filter by category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map(category => (
-                    <SelectItem key={category} value={category!}>{category}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Filters */}
+        <TodoFilters 
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+          categories={getCategories()}
+        />
 
-        {/* Todo List */}
+        {/* Add Todo Button - Mobile */}
+        {!showForm && !editingTodo && (
+          <div className="mb-6 md:hidden">
+            <Button 
+              onClick={() => setShowForm(true)}
+              className="w-full bg-black text-white hover:bg-gray-800"
+              size="lg"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Add Todo
+            </Button>
+          </div>
+        )}
+
+        {/* Todo Form */}
+        {(showForm || editingTodo) && (
+          <TodoForm
+            todo={editingTodo || undefined}
+            onSubmit={editingTodo ? handleUpdateTodo : handleAddTodo}
+            onCancel={editingTodo ? handleCancelEdit : () => setShowForm(false)}
+            isEditing={!!editingTodo}
+          />
+        )}
+
+        {/* Add Todo Button - Desktop */}
+        {!showForm && !editingTodo && (
+          <div className="hidden md:block mb-6">
+            <Button 
+              onClick={() => setShowForm(true)}
+              className="bg-black text-white hover:bg-gray-800"
+              size="lg"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Add Todo
+            </Button>
+          </div>
+        )}
+
+        {/* Todos List */}
         <div className="space-y-4">
-          {filteredTodos.length === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <CheckCircle2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-600 mb-2">
-                  {searchTerm || filters.status !== 'all' ? 'No todos match your filters' : 'No todos yet'}
-                </h3>
-                <p className="text-gray-500 mb-4">
-                  {searchTerm || filters.status !== 'all' ? 'Try adjusting your search or filters' : 'Start by adding your first todo'}
-                </p>
-                {!searchTerm && filters.status === 'all' && (
-                  <Button onClick={() => setShowForm(true)} className="bg-red-600 hover:bg-red-700">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Your First Todo
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+          {todos.length === 0 ? (
+            <div className="text-center py-12">
+              <CheckSquare className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                {filters.searchTerm || filters.status !== 'all' || filters.priority !== 'all' || filters.category !== 'all'
+                  ? 'No todos match your filters'
+                  : 'No todos yet'
+                }
+              </h3>
+              <p className="text-gray-600">
+                {filters.searchTerm || filters.status !== 'all' || filters.priority !== 'all' || filters.category !== 'all'
+                  ? 'Try adjusting your filters to see more todos'
+                  : 'Create your first todo to get started'
+                }
+              </p>
+            </div>
           ) : (
-            filteredTodos.map(todo => (
-              <TodoItem
+            todos.map((todo) => (
+              <TodoCard
                 key={todo.id}
                 todo={todo}
-                onToggle={handleToggleTodo}
-                onEdit={setEditingTodo}
+                onToggle={toggleTodo}
+                onEdit={handleEditTodo}
                 onDelete={handleDeleteTodo}
               />
             ))
           )}
         </div>
       </div>
-
-      {/* Todo Form Modal */}
-      {(showForm || editingTodo) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold mb-4">
-              {editingTodo ? 'Edit Todo' : 'Add New Todo'}
-            </h2>
-            <TodoForm
-              initialData={editingTodo}
-              onSubmit={editingTodo ? handleEditTodo : handleAddTodo}
-              onCancel={() => {
-                setShowForm(false);
-                setEditingTodo(null);
-              }}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
-};
-
-export default TodoApp;
+}

@@ -1,118 +1,155 @@
-import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Todo } from '@/types';
+import { useState, useEffect } from 'react';
+import { Plus, X } from 'lucide-react';
 
 interface TodoFormProps {
-  initialData?: Todo | null;
-  onSubmit: (data: Omit<Todo, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  todo?: Todo;
+  onSubmit: (todo: Omit<Todo, 'id' | 'createdAt'>) => void;
   onCancel: () => void;
+  isEditing?: boolean;
 }
 
-export const TodoForm: React.FC<TodoFormProps> = ({ initialData, onSubmit, onCancel }) => {
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    priority: 'medium' as 'low' | 'medium' | 'high',
-    category: '',
-    completed: false
-  });
+export function TodoForm({ todo, onSubmit, onCancel, isEditing = false }: TodoFormProps) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
+  const [category, setCategory] = useState('Personal');
+  const [dueDate, setDueDate] = useState('');
 
   useEffect(() => {
-    if (initialData) {
-      setFormData({
-        title: initialData.title,
-        description: initialData.description || '',
-        priority: initialData.priority,
-        category: initialData.category || '',
-        completed: initialData.completed
-      });
+    if (todo) {
+      setTitle(todo.title);
+      setDescription(todo.description || '');
+      setPriority(todo.priority);
+      setCategory(todo.category);
+      setDueDate(todo.dueDate || '');
     }
-  }, [initialData]);
+  }, [todo]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title.trim()) {
-      alert('Please enter a title for your todo');
-      return;
-    }
-    
+    if (!title.trim()) return;
+
     onSubmit({
-      title: formData.title.trim(),
-      description: formData.description.trim() || undefined,
-      priority: formData.priority,
-      category: formData.category.trim() || undefined,
-      completed: formData.completed
+      title: title.trim(),
+      description: description.trim() || undefined,
+      priority,
+      category,
+      completed: todo?.completed || false,
+      dueDate: dueDate || undefined
     });
+
+    if (!isEditing) {
+      setTitle('');
+      setDescription('');
+      setPriority('medium');
+      setCategory('Personal');
+      setDueDate('');
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Title *
-        </label>
-        <Input
-          type="text"
-          value={formData.title}
-          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-          placeholder="Enter todo title"
-          required
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Description
-        </label>
-        <Textarea
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          placeholder="Enter todo description (optional)"
-          rows={3}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Priority
-          </label>
-          <Select value={formData.priority} onValueChange={(value: any) => setFormData({ ...formData, priority: value })}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="low">Low</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-            </SelectContent>
-          </Select>
+    <Card className="mb-6 bg-white border-black">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-xl text-black">
+            {isEditing ? 'Edit Todo' : 'Add New Todo'}
+          </CardTitle>
+          {isEditing && (
+            <Button variant="ghost" size="sm" onClick={onCancel} className="text-black hover:bg-gray-200">
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Category
-          </label>
-          <Input
-            type="text"
-            value={formData.category}
-            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-            placeholder="e.g., Work, Personal"
-          />
-        </div>
-      </div>
-
-      <div className="flex justify-end space-x-3 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-          {initialData ? 'Update Todo' : 'Add Todo'}
-        </Button>
-      </div>
-    </form>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="title" className="text-black">Title</Label>
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Enter todo title"
+                required
+                className="border-black text-black placeholder-gray-500"
+              />
+            </div>
+            <div>
+              <Label htmlFor="category" className="text-black">Category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="border-black text-black">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-black">
+                  <SelectItem value="Personal">Personal</SelectItem>
+                  <SelectItem value="Work">Work</SelectItem>
+                  <SelectItem value="Health">Health</SelectItem>
+                  <SelectItem value="Shopping">Shopping</SelectItem>
+                  <SelectItem value="Education">Education</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <div>
+            <Label htmlFor="description" className="text-black">Description</Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Enter todo description (optional)"
+              rows={3}
+              className="border-black text-black placeholder-gray-500"
+            />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="priority" className="text-black">Priority</Label>
+              <Select value={priority} onValueChange={(value: 'low' | 'medium' | 'high') => setPriority(value)}>
+                <SelectTrigger className="border-black text-black">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border-black">
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="dueDate" className="text-black">Due Date</Label>
+              <Input
+                id="dueDate"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="border-black text-black"
+              />
+            </div>
+          </div>
+          
+          <div className="flex justify-end space-x-2">
+            {isEditing && (
+              <Button type="button" variant="outline" onClick={onCancel} className="border-black text-black hover:bg-gray-200">
+                Cancel
+              </Button>
+            )}
+            <Button type="submit" className="bg-black text-white hover:bg-gray-800">
+              <Plus className="h-4 w-4 mr-2" />
+              {isEditing ? 'Update Todo' : 'Add Todo'}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
-};
+}

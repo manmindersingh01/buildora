@@ -16,7 +16,6 @@ interface ModificationResult {
         modifiedCode: string;
     }>;
     error?: string;
-    debug?: any;
 }
 export declare class IntelligentFileModifier {
     private anthropic;
@@ -25,8 +24,9 @@ export declare class IntelligentFileModifier {
     constructor(anthropic: Anthropic, reactBasePath: string);
     private buildProjectTree;
     private analyzeFile;
+    private escapeRegExp;
     private fallbackFileSearch;
-    private determineScope;
+    private determineScopeForFallbackFiles;
     private handleFullFileModification;
     private extractComponentName;
     private checkForButtons;

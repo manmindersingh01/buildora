@@ -3,21 +3,22 @@ export interface Todo {
   title: string;
   description?: string;
   completed: boolean;
-  createdAt: Date;
-  updatedAt: Date;
   priority: 'low' | 'medium' | 'high';
-  category?: string;
+  category: string;
+  createdAt: string;
+  dueDate?: string;
 }
 
 export interface TodoStats {
   total: number;
   completed: number;
   pending: number;
-  highPriority: number;
+  overdue: number;
 }
 
-export interface TodoFilters {
+export interface FilterOptions {
   status: 'all' | 'completed' | 'pending';
   priority: 'all' | 'low' | 'medium' | 'high';
   category: string;
+  searchTerm: string;
 }
