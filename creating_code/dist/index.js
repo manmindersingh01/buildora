@@ -46,13 +46,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
-<<<<<<< HEAD
 const promt_1 = require("./defaults/promt");
-const filemodifier_1 = require("./services/filemodifier");
-=======
-const child_process_1 = require("child_process");
->>>>>>> preview
-require("dotenv/config");
 const fs = __importStar(require("fs"));
 const express_1 = __importDefault(require("express"));
 const path_1 = __importDefault(require("path"));
@@ -61,11 +55,6 @@ const app = (0, express_1.default)();
 const adm_zip_1 = __importDefault(require("adm-zip"));
 const cors_1 = __importDefault(require("cors"));
 const classes_1 = require("./defaults/classes");
-const supabase_js_1 = require("@supabase/supabase-js");
-<<<<<<< HEAD
-=======
-const axios_1 = __importDefault(require("axios"));
->>>>>>> preview
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
 const pro = "You are an expert web developer creating modern websites using React, TypeScript, and Tailwind CSS. Generate clean, focused website code based on user prompts.\n" +
@@ -263,8 +252,6 @@ const pro = "You are an expert web developer creating modern websites using Reac
     "✅ Valid JSON response with files array and structureTree\n" +
     "\n" +
     "Generate focused, professional websites that accomplish the user's goals efficiently. Prioritize clarity and usability over extensive content unless specifically requested. ALWAYS follow the data fetching and error prevention rules to avoid runtime errors. ALWAYS provide files in the specified format and organization.";
-const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-<<<<<<< HEAD
 app.post("/generatebackend", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { prompt } = req.body;
     try {
@@ -296,38 +283,6 @@ app.post("/generatebackend", (req, res) => __awaiter(void 0, void 0, void 0, fun
         console.log(error);
     }
 }));
-=======
-// app.post("/generatebackend", async (req, res) => {
-//   const { prompt } = req.body;
-//   try {
-//     const backendResult = await anthropic.messages.create({
-//       model: "claude-sonnet-4-0",
-//       max_tokens: 15000,
-//       temperature: 1,
-//       system: BackendSystemPrompt,
-//       messages: [
-//         {
-//           role: "user",
-//           content: [
-//             {
-//               type: "text",
-//               text: prompt,
-//             },
-//           ],
-//         },
-//       ],
-//     });
-//     console.log(backendResult);
-//     //@ts-ignore
-//     // const pasredData = JSON.parse(backendResult.content[0].text);
-//     // console.log(pasredData);
-//     res.json(backendResult.content[0].text);
-//     // const backendResponse = JSON.parse(backendResult.content[0].text);
-//   } catch (error) {
-//     console.log(error);
-//   }
-// });
->>>>>>> preview
 app.post("/generateFrontend", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { prompt } = req.body;
     console.log(prompt);
@@ -500,217 +455,6 @@ app.post("/modify", (req, res) => __awaiter(void 0, void 0, void 0, function* ()
     }
     catch (error) { }
 }));
-app.get("/zipFolder", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-<<<<<<< HEAD
-=======
-    const zipFolderName = `project${Date.now()}.zip`;
->>>>>>> preview
-    try {
-        const zip = new adm_zip_1.default();
-        const baseDir = path_1.default.join(__dirname, "../react-base");
-        zip.addLocalFolder(baseDir);
-<<<<<<< HEAD
-        const outDir = path_1.default.join(__dirname, "../generated-sites", "proj123.zip");
-=======
-        const outDir = path_1.default.join(__dirname, "../generated-sites", zipFolderName);
->>>>>>> preview
-        zip.writeZip(outDir);
-        const zipData = fs.readFileSync(outDir);
-        const { data, error } = yield supabase.storage
-            .from("zipprojects")
-<<<<<<< HEAD
-            .upload("archives/proj123.zip", zipData, {
-            contentType: "application/zip",
-            upsert: true,
-        });
-        const publicUrl = yield supabase.storage.from("zipprojects").getPublicUrl("proj123.zip");
-        res.json("done with zipping the file and sending to supabase ");
-=======
-            .upload(`archives/${zipFolderName}`, zipData, {
-            contentType: "application/zip",
-            upsert: true,
-        });
-        if (error) {
-            console.log("supabase error ", error);
-        }
-        const publicUrl = yield supabase.storage
-            .from("zipprojects")
-            .getPublicUrl(zipFolderName);
-        // adding into the queue the data {projectname , publicurl}
-        //
-        res.json(publicUrl);
->>>>>>> preview
-    }
-    catch (error) {
-        console.log(error);
-        res.json(error);
-    }
-}));
-<<<<<<< HEAD
-=======
-app.post("/buildrun", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { zipUrl } = req.body;
-    console.log(`Received zipUrl: ${zipUrl}`);
-    const outputPath = path_1.default.resolve(__dirname, "../output");
-    console.log(`Resolved output path: ${outputPath}`);
-    const cleanDirectory = (dirPath) => {
-        if (fs.existsSync(dirPath)) {
-            const files = fs.readdirSync(dirPath);
-            files.forEach((file) => {
-                const filePath = path_1.default.join(dirPath, file);
-                const stat = fs.statSync(filePath);
-                if (stat.isDirectory()) {
-                    cleanDirectory(filePath);
-                    fs.rmdirSync(filePath);
-                }
-                else {
-                    fs.unlinkSync(filePath);
-                }
-            });
-            console.log("✅ Output directory cleaned");
-        }
-    };
-    // Helper function to get MIME type
-    const getMimeType = (filename) => {
-        const ext = path_1.default.extname(filename).toLowerCase();
-        const mimeTypes = {
-            ".html": "text/html",
-            ".css": "text/css",
-            ".js": "application/javascript",
-            ".json": "application/json",
-            ".png": "image/png",
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".gif": "image/gif",
-            ".svg": "image/svg+xml",
-            ".ico": "image/x-icon",
-            ".woff": "font/woff",
-            ".woff2": "font/woff2",
-            ".ttf": "font/ttf",
-            ".eot": "application/vnd.ms-fontobject",
-        };
-        return mimeTypes[ext] || "application/octet-stream";
-    };
-    // Helper function to upload files recursively
-    const uploadDirectory = (dirPath_1, ...args_1) => __awaiter(void 0, [dirPath_1, ...args_1], void 0, function* (dirPath, bucketPath = "", buildId) {
-        const files = fs.readdirSync(dirPath);
-        for (const file of files) {
-            const filePath = path_1.default.join(dirPath, file);
-            const stat = fs.statSync(filePath);
-            if (stat.isDirectory()) {
-                yield uploadDirectory(filePath, `${bucketPath}${file}/`, buildId);
-            }
-            else {
-                const fileContent = fs.readFileSync(filePath);
-                const mimeType = getMimeType(file);
-                yield supabase.storage
-                    .from("static")
-                    .upload(`sites/${buildId}/${bucketPath}${file}`, fileContent, {
-                    contentType: mimeType,
-                    upsert: true,
-                });
-            }
-        }
-    });
-    // Clean and ensure output directory exists
-    cleanDirectory(outputPath);
-    if (!fs.existsSync(outputPath)) {
-        fs.mkdirSync(outputPath, { recursive: true });
-    }
-    // Step 1: Build the Docker image
-    (0, child_process_1.exec)(`docker build --build-arg ZIP_URL="${zipUrl}" -t react-builder .`, { cwd: path_1.default.resolve(__dirname, "../") }, (err, stdout, stderr) => {
-        if (err) {
-            console.error("❌ Build failed:", stderr);
-            return res.status(500).json({ error: "Build failed", details: stderr });
-        }
-        console.log("✅ Build completed. Output:");
-        console.log(stdout);
-        // Step 2: Run the Docker container and mount the output folder
-        (0, child_process_1.exec)(`docker run --rm -v "${outputPath}:/output" react-builder`, (err, stdout, stderr) => __awaiter(void 0, void 0, void 0, function* () {
-            if (err) {
-                console.error("❌ Run failed:", stderr);
-                return res
-                    .status(500)
-                    .json({ error: "Run failed", details: stderr });
-            }
-            console.log("✅ Build output copied to:", outputPath);
-            console.log("Container output:", stdout);
-            try {
-                // Step 3: Upload files after Docker container completes
-                const buildId = `build_${Date.now()}`;
-                // Upload individual files for iframe preview
-                yield uploadDirectory(outputPath, "", buildId);
-                // Also create ZIP for download
-                const zip = new adm_zip_1.default();
-                zip.addLocalFolder(outputPath);
-                const zipFileName = `${buildId}.zip`;
-                const tempZipPath = path_1.default.join(__dirname, "../temp", zipFileName);
-                if (!fs.existsSync(path_1.default.dirname(tempZipPath))) {
-                    fs.mkdirSync(path_1.default.dirname(tempZipPath), { recursive: true });
-                }
-                zip.writeZip(tempZipPath);
-                const zipData = fs.readFileSync(tempZipPath);
-                const { data, error } = yield supabase.storage
-                    .from("static")
-                    .upload(`archives/${zipFileName}`, zipData, {
-                    contentType: "application/zip",
-                    upsert: true,
-                });
-                if (error) {
-                    console.error("❌ Supabase upload error:", error);
-                    return res.status(500).json({
-                        error: "Failed to upload to Supabase",
-                        details: error,
-                    });
-                }
-                // Get URLs
-                const { data: indexUrlData } = supabase.storage
-                    .from("static")
-                    .getPublicUrl(`sites/${buildId}/index.html`);
-                const { data: zipUrlData } = supabase.storage
-                    .from("static")
-                    .getPublicUrl(`archives/${zipFileName}`);
-                // Clean up temp zip file
-                fs.unlinkSync(tempZipPath);
-                console.log("✅ Build completed and uploaded successfully");
-                res.json({
-                    success: true,
-                    buildId: buildId,
-                    previewUrl: indexUrlData.publicUrl, // Use this for iframe
-                    downloadUrl: zipUrlData.publicUrl, // Use this for download
-                    message: "Build completed and uploaded successfully",
-                });
-            }
-            catch (uploadError) {
-                console.error("❌ Upload process failed:", uploadError);
-                res.status(500).json({
-                    error: "Upload process failed",
-                });
-            }
-        }));
-    });
-}));
-app.get("/api/preview", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    console.log("Proxy endpoint hit. Fetching content from Supabase...");
-    const previewUrl = "https://zewahrnmtqehbaduaewy.supabase.co/storage/v1/object/public/static/sites/build_1750011746798/index.html";
-    try {
-        // Fetch the HTML content from Supabase
-        const response = yield axios_1.default.get(previewUrl, {
-            responseType: "text", // Get the raw HTML
-        });
-        let html = response.data;
-        // Rewrite relative asset URLs to absolute URLs pointing to Supabase
-        html = html.replace(/href="\/assets\//g, 'href="https://zewahrnmtqehbaduaewy.supabase.co/storage/v1/object/public/static/sites/build_1750011746798/assets/');
-        html = html.replace(/src="\/assets\//g, 'src="https://zewahrnmtqehbaduaewy.supabase.co/storage/v1/object/public/static/sites/build_1750011746798/assets/');
-        // Send the modified HTML back to the client
-        res.send(html);
-    }
-    catch (error) {
-        res.status(500).send("Failed to load preview content.");
-    }
-}));
-//@ts-ignore
->>>>>>> preview
 app.listen(3000, () => {
     console.log("Server is running on port 3000");
 });

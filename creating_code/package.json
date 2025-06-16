@@ -22,10 +22,14 @@
     "@babel/traverse": "^7.25.0",
     "@babel/types": "^7.25.0",
     "adm-zip": "^0.5.16",
+    "axios": "^1.10.0",
+    "bullmq": "^5.53.3",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
-    "typescript": "^5.8.3"
+    "serve": "^14.2.4",
+    "typescript": "^5.8.3",
+    "unzipper": "^0.12.3"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.7",
