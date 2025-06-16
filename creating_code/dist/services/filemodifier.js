@@ -90,18 +90,22 @@ class IntelligentFileModifier {
             }
         });
     }
-    // Fallback: Go through all files one by one to find relevant content
+    // Escape regex special characters
+    escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    // Fallback: Go through all files one by one to find relevant content (FILES ONLY)
     fallbackFileSearch(prompt) {
         return __awaiter(this, void 0, void 0, function* () {
             console.log(`🔍 FALLBACK: No files identified by Claude, searching all files one by one...`);
             console.log(`📁 Searching through ${this.projectFiles.size} files for: "${prompt}"`);
             if (this.projectFiles.size === 0) {
                 console.log('❌ No files to search through');
-                return { files: [], scope: 'TARGETED_NODES' };
+                return [];
             }
-            const searchTerms = prompt.toLowerCase().split(' ');
+            const searchTerms = prompt.toLowerCase().split(' ').filter(term => term.length > 2); // Filter out short words
             const matches = [];
-            console.log(`🔎 Searching for terms: ${searchTerms.join(', ')}`);
+            console.log(`🔎 Searching for meaningful terms: ${searchTerms.join(', ')}`);
             for (const [relativePath, file] of this.projectFiles.entries()) {
                 let score = 0;
                 const fileContentLower = file.content.toLowerCase();
@@ -109,16 +113,18 @@ class IntelligentFileModifier {
                 console.log(`   - Has buttons: ${file.hasButtons}`);
                 console.log(`   - Has signin: ${file.hasSignin}`);
                 console.log(`   - Is main file: ${file.isMainFile}`);
-                // Score based on prompt keywords
+                // Score based on meaningful prompt keywords only
                 searchTerms.forEach(term => {
-                    const contentMatches = (fileContentLower.match(new RegExp(term, 'g')) || []).length;
-                    if (contentMatches > 0) {
-                        score += contentMatches * 10;
-                        console.log(`   - Found '${term}' ${contentMatches} times in content (+${contentMatches * 10})`);
-                    }
-                    if (file.name.toLowerCase().includes(term)) {
-                        score += 20;
-                        console.log(`   - Found '${term}' in filename (+20)`);
+                    if (term.length > 2) { // Only score meaningful terms
+                        const contentMatches = (fileContentLower.match(new RegExp(this.escapeRegExp(term), 'g')) || []).length;
+                        if (contentMatches > 0 && contentMatches < 100) { // Avoid over-common words
+                            score += Math.min(contentMatches * 10, 100); // Cap individual term scoring
+                            console.log(`   - Found '${term}' ${contentMatches} times in content (+${Math.min(contentMatches * 10, 100)})`);
+                        }
+                        if (file.name.toLowerCase().includes(term)) {
+                            score += 20;
+                            console.log(`   - Found '${term}' in filename (+20)`);
+                        }
                     }
                 });
                 // Boost score for relevant content
@@ -144,7 +150,7 @@ class IntelligentFileModifier {
                     console.log(`   - Is main file (+10)`);
                 }
                 console.log(`   - Total score: ${score}`);
-                if (score > 0) {
+                if (score > 20) { // Higher threshold to avoid noise
                     matches.push({ file, score });
                 }
             }
@@ -155,24 +161,72 @@ class IntelligentFileModifier {
                 const files = topMatches.map(m => m.file.relativePath);
                 console.log(`\n✅ Fallback found ${files.length} matching files:`);
                 files.forEach(f => console.log(`   - ${f}`));
-                // Determine scope based on prompt
-                const scope = this.determineScope(prompt);
-                console.log(`🎯 Determined scope: ${scope}`);
-                return { files, scope };
+                return files;
             }
             console.log('❌ No matching files found in fallback search');
-            return { files: [], scope: 'TARGETED_NODES' };
+            return [];
         });
     }
-    // Determine scope based on prompt
-    determineScope(prompt) {
-        const fullFileKeywords = [
-            'dark mode', 'theme', 'layout', 'design', 'style', 'ui',
-            'redesign', 'rework', 'complete', 'entire', 'all',
-            'comprehensive', 'overhaul', 'modernize'
-        ];
-        const isFullFileScope = fullFileKeywords.some(keyword => prompt.toLowerCase().includes(keyword));
-        return isFullFileScope ? 'FULL_FILE' : 'TARGETED_NODES';
+    // Determine scope for fallback files using Claude
+    determineScopeForFallbackFiles(prompt, files) {
+        return __awaiter(this, void 0, void 0, function* () {
+            console.log(`🤖 Claude determining scope for fallback files: "${prompt}"`);
+            const claudePrompt = `
+**User Request:** "${prompt}"
+**Files Found:** ${files.join(', ')}
+
+**Task:** Determine the modification scope based ONLY on the request type.
+
+**Scope Guidelines:**
+- **FULL_FILE**: Use when request involves:
+  * Dark mode, theme changes, color scheme overhauls
+  * Layout changes, design changes, comprehensive styling
+  * Complete redesigns, modernization, overhauls
+  * Adding responsive design, mobile layouts
+  * Structural changes affecting entire components
+  * Any request mentioning "entire", "all", "complete", "comprehensive"
+
+- **TARGETED_NODES**: Use when request involves:
+  * Specific button colors (e.g., "make signin button red")
+  * Individual text changes
+  * Single element modifications
+  * Small styling tweaks to specific elements
+  * Adding/removing specific attributes
+
+**Examples:**
+- "make signin button red" → TARGETED_NODES
+- "add dark mode theme" → FULL_FILE
+- "change layout to modern design" → FULL_FILE
+- "make header responsive" → FULL_FILE
+- "change text color of welcome message" → TARGETED_NODES
+
+**Response:** Return ONLY the scope:
+TARGETED_NODES
+    `.trim();
+            try {
+                const response = yield this.anthropic.messages.create({
+                    model: 'claude-3-5-sonnet-20240620',
+                    max_tokens: 50,
+                    temperature: 0,
+                    messages: [{ role: 'user', content: claudePrompt }],
+                });
+                const firstBlock = response.content[0];
+                if ((firstBlock === null || firstBlock === void 0 ? void 0 : firstBlock.type) === 'text') {
+                    const text = firstBlock.text.trim();
+                    if (text.includes('FULL_FILE')) {
+                        console.log(`📋 Claude determined scope: FULL_FILE`);
+                        return 'FULL_FILE';
+                    }
+                }
+                console.log(`📋 Claude determined scope: TARGETED_NODES`);
+                return 'TARGETED_NODES';
+            }
+            catch (error) {
+                console.error('Error determining scope:', error);
+                console.log(`📋 Defaulting to scope: TARGETED_NODES`);
+                return 'TARGETED_NODES';
+            }
+        });
     }
     // STEP 3: Handle full file modification
     handleFullFileModification(prompt, filePath) {
@@ -506,15 +560,26 @@ ${node.fullContext}
 **Code Snippets to Modify:**
 ${snippetsInfo}
 
-**Task:** Modify each code snippet according to the request. Return the exact replacement code.
+**Task:** Modify each code snippet according to the request. Return the exact replacement code for each node.
 
-**Response Format:** JSON object with node ID as key and modified code as value:
+**IMPORTANT**: You must return a valid JSON object with node IDs as keys and modified JSX code as values.
+
+**Response Format:** Return ONLY this JSON (no other text):
 \`\`\`json
 {
   "node_5": "<modified JSX code here>",
   "node_12": "<modified JSX code here>"
 }
 \`\`\`
+
+**Example for "make button red":**
+\`\`\`json
+{
+  "node_15": "<button className=\"bg-red-500 text-white px-4 py-2 rounded\">Submit</button>"
+}
+\`\`\`
+
+Return ONLY the JSON, nothing else.
     `.trim();
             try {
                 const response = yield this.anthropic.messages.create({
@@ -526,15 +591,38 @@ ${snippetsInfo}
                 const firstBlock = response.content[0];
                 if ((firstBlock === null || firstBlock === void 0 ? void 0 : firstBlock.type) === 'text') {
                     const text = firstBlock.text;
-                    const jsonMatch = text.match(/```json\n([\s\S]*?)```/);
+                    console.log(`🔍 Raw response: ${text.substring(0, 200)}...`);
+                    // Try multiple JSON extraction patterns
+                    let jsonMatch = text.match(/```json\n([\s\S]*?)```/);
+                    if (!jsonMatch) {
+                        jsonMatch = text.match(/```\n([\s\S]*?)```/);
+                    }
+                    if (!jsonMatch) {
+                        jsonMatch = text.match(/\{[\s\S]*\}/);
+                    }
                     if (jsonMatch) {
-                        const modifications = JSON.parse(jsonMatch[1]);
-                        const modMap = new Map();
-                        for (const [nodeId, modifiedCode] of Object.entries(modifications)) {
-                            modMap.set(nodeId, modifiedCode);
+                        try {
+                            const jsonText = jsonMatch[1] || jsonMatch[0];
+                            console.log(`🔍 Extracted JSON: ${jsonText}`);
+                            const modifications = JSON.parse(jsonText);
+                            const modMap = new Map();
+                            for (const [nodeId, modifiedCode] of Object.entries(modifications)) {
+                                if (typeof modifiedCode === 'string' && modifiedCode.trim()) {
+                                    modMap.set(nodeId, modifiedCode);
+                                    console.log(`✅ Added modification for ${nodeId}: ${modifiedCode.substring(0, 50)}...`);
+                                }
+                            }
+                            console.log(`✅ Successfully parsed ${modMap.size} code modifications`);
+                            return modMap;
                         }
-                        console.log(`✅ Received ${modMap.size} code modifications`);
-                        return modMap;
+                        catch (parseError) {
+                            console.error('JSON parsing failed:', parseError);
+                            console.log('Raw JSON text:', jsonMatch[1] || jsonMatch[0]);
+                        }
+                    }
+                    else {
+                        console.error('No JSON found in response');
+                        console.log('Full response:', text);
                     }
                 }
                 return new Map();
@@ -594,10 +682,18 @@ ${snippetsInfo}
                 }
                 // STEP 2: Claude analyzes project tree to determine relevant files + scope
                 let fileAnalysis = yield this.identifyRelevantFiles(prompt);
-                // FALLBACK: If no files identified, search all files one by one
+                // FALLBACK: If no files identified, search all files one by one, then ask Claude for scope
                 if (fileAnalysis.files.length === 0) {
                     console.log(`⚠️ No files identified by Claude, triggering fallback search...`);
-                    fileAnalysis = yield this.fallbackFileSearch(prompt);
+                    const fallbackFiles = yield this.fallbackFileSearch(prompt);
+                    if (fallbackFiles.length > 0) {
+                        // Let Claude determine scope for fallback files
+                        const scope = yield this.determineScopeForFallbackFiles(prompt, fallbackFiles);
+                        fileAnalysis = { files: fallbackFiles, scope };
+                    }
+                    else {
+                        return { success: false, error: 'No relevant files found even after fallback search' };
+                    }
                 }
                 if (fileAnalysis.files.length === 0) {
                     return { success: false, error: 'No relevant files found even after fallback search' };

@@ -340,7 +340,7 @@ app.post("/generateChanges", async (req, res) => {
   try {
     console.log(`🚀 8-Step Modification Workflow: "${prompt}"`);
     
-    // Path to your react-base-temp folder
+   
     const reactBasePath = path.join(__dirname, "../react-base");
     
     const intelligentModifier = new IntelligentFileModifier(anthropic, reactBasePath);
@@ -352,7 +352,7 @@ app.post("/generateChanges", async (req, res) => {
       console.log(`🎯 Approach: ${result.approach}`);
       console.log(`📊 Code ranges modified: ${result.modifiedRanges?.length || 0}`);
       
-      // Return detailed workflow results
+      
       res.json({
         success: true,
         workflow: "8-step-ast-modification",
