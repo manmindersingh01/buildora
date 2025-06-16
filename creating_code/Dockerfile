@@ -23,5 +23,5 @@ RUN rm app.zip
 RUN npm install
 RUN npm run build
 
-# CMD only to keep container alive briefly (optional in prod)
-CMD ["echo", "Build completed."]
+# Copy build output to mounted volume when container runs
+CMD ["sh", "-c", "cp -r ./dist/* /output/ 2>/dev/null || cp -r ./build/* /output/ 2>/dev/null || echo 'No dist or build folder found'"]
