@@ -54,65 +54,33 @@ PROJECT STRUCTURE: ${JSON.stringify(value, null, 2)}` +
 
       const data = res.data.content[0].text;
 
-<<<<<<< HEAD
     const filesToChange = await axios.post(
       "http://localhost:3000/extractFilesToChange",
       {
-        pwd: "C:/Users/KIIT/Documents/Lovable/Lovable/buildora/creating_code/react-base/src",
+        pwd: "/Users/manmindersingh/Desktop/code /ai-webisite-builder/react-base-temp",
         analysisResult: data,
       }
     );
     console.log(filesToChange.data.files);
-=======
-      const filesToChange = await axios.post(
-        "http://localhost:3000/extractFilesToChange",
-        {
-          pwd: "/Users/manmindersingh/Desktop/code /ai-webisite-builder/react-base-temp",
-          analysisResult: data,
-        }
-      );
->>>>>>> preview
 
-      const updatedFile = await axios.post("http://localhost:3000/modify", {
-        files: filesToChange.data.files,
-        prompt: prompt,
-      });
+    const updatedFile = await axios.post("http://localhost:3000/modify", {
+      files: filesToChange.data.files,
+      prompt: prompt,
+    });
+    console.log(updatedFile);
+    const parsedData = JSON.parse(updatedFile.data.content[0].text);
+    const result = parsedData.map((item) => ({
+      path: item.path,
+      content: item.content,
+    }));
 
-      const parsedData = JSON.parse(updatedFile.data.content[0].text);
-      const result = parsedData.map((item) => ({
-        path: item.path,
-        content: item.content,
-      }));
+    console.log("parsed data", result);
 
-<<<<<<< HEAD
     await axios.post("http://localhost:3000/write-files", {
       baseDir:
-        "C:/Users/KIIT/Documents/Lovable/Lovable/buildora/creating_code/react-base/src",
+        "/Users/manmindersingh/Desktop/code /ai-webisite-builder/react-base-temp",
       files: result,
     });
-=======
-      await axios.post("http://localhost:3000/write-files", {
-        baseDir:
-          "/Users/manmindersingh/Desktop/code /ai-webisite-builder/react-base-temp",
-        files: result,
-      });
-
-      // Update the loading message with success
-
-      setPrompt("");
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
-    }
->>>>>>> preview
   };
 
   return (

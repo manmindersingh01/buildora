@@ -1,13 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { BackendSystemPrompt, systemPrompt } from "./defaults/promt";
 import { Stream } from "@anthropic-ai/sdk/core/streaming";
-<<<<<<< HEAD
-import { IntelligentFileModifier } from './services/filemodifier';
-import * as parser from '@babel/parser';
-import traverse from '@babel/traverse';
-=======
-import { exec } from "child_process";
->>>>>>> preview
 import "dotenv/config";
 import * as fs from "fs";
 import express from "express";

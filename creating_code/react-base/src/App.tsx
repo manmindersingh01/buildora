@@ -1,27 +1,19 @@
-<<<<<<< HEAD
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { TodoApp } from '@/pages/TodoApp';
-=======
-import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { Home } from "./pages/Home";
-import Index from "./pages/Index";
->>>>>>> preview
+import { Home } from './pages/Home';
 
 function App() {
   return (
     <Router>
-<<<<<<< HEAD
-      <Routes>
-        <Route path="/" element={<TodoApp />} />
-      </Routes>
-=======
       <div className="App">
         <Routes>
-          <Route path="/" element={<Index />} />
+          <Route path="/" element={<Home />} />
+          {/* Add more routes here as needed */}
+          {/* <Route path="/menu" element={<Menu />} /> */}
+          {/* <Route path="/about" element={<About />} /> */}
+          {/* <Route path="/contact" element={<Contact />} /> */}
         </Routes>
       </div>
->>>>>>> preview
     </Router>
   );
 }
