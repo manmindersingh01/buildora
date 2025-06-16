@@ -612,37 +612,7 @@ app.post("/buildrun", async (req, res) => {
   );
 });
 
-app.get("/api/preview", async (req, res) => {
-  console.log("Proxy endpoint hit. Fetching content from Supabase...");
 
-  const previewUrl =
-    "https://zewahrnmtqehbaduaewy.supabase.co/storage/v1/object/public/static/sites/build_1750011746798/index.html";
-
-  try {
-    // Fetch the HTML content from Supabase
-    const response = await axios.get(previewUrl, {
-      responseType: "text", // Get the raw HTML
-    });
-
-    let html = response.data;
-
-    // Rewrite relative asset URLs to absolute URLs pointing to Supabase
-    html = html.replace(
-      /href="\/assets\//g,
-      'href="https://zewahrnmtqehbaduaewy.supabase.co/storage/v1/object/public/static/sites/build_1750011746798/assets/'
-    );
-    html = html.replace(
-      /src="\/assets\//g,
-      'src="https://zewahrnmtqehbaduaewy.supabase.co/storage/v1/object/public/static/sites/build_1750011746798/assets/'
-    );
-
-    // Send the modified HTML back to the client
-    res.send(html);
-  } catch (error) {
-
-    res.status(500).send("Failed to load preview content.");
-  }
-});
 //@ts-ignore
 
 app.listen(3000, () => {

@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from "motion/react";
 const Index = () => {
   const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(true);
+  const [submitted, setSubmitted] = useState(false);
 
   const { value, setValue } = useContext(MyContext);
 

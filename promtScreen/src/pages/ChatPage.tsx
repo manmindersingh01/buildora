@@ -14,10 +14,6 @@ const ChatPage = () => {
     "https://zewahrnmtqehbaduaewy.supabase.co/storage/v1/object/public/static/sites/build_1750011746798/index.html"
   );
 
-  // useEffect(() => {
-  //   showPreview();
-  // }, []);
-
   // const showPreview = async () => {
   //   const zipurl = await axios.get("/zipFolder");
   //   const previewFolderzip = await axios.post("/buildrun", {
@@ -184,16 +180,9 @@ PROJECT STRUCTURE: ${JSON.stringify(value, null, 2)}` +
                 <div className="w-16 h-16 bg-slate-200 rounded-lg mx-auto mb-4 flex items-center justify-center">
                   <Code className="w-8 h-8 text-slate-400" />
                 </div>
-                <iframe
-                  src="http://localhost:3000/api/preview"
-                  className="w-full h-full border-0"
-                  title="Live Preview"
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads allow-top-navigation"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  allow="fullscreen"
-                />
               </div>
             </div>
+            <iframe src="https://zewahrnmtqehbaduaewy.supabase.co/storage/v1/object/public/static/sites/build_1750049856822/index.html" />
             {/* Replace the placeholder div above with your iframe when ready */}
           </div>
         </div>
