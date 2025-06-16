@@ -1,9 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { BackendSystemPrompt, systemPrompt } from "./defaults/promt";
 import { Stream } from "@anthropic-ai/sdk/core/streaming";
+<<<<<<< HEAD
 import { IntelligentFileModifier } from './services/filemodifier';
 import * as parser from '@babel/parser';
 import traverse from '@babel/traverse';
+=======
+import { exec } from "child_process";
+>>>>>>> preview
 import "dotenv/config";
 import * as fs from "fs";
 import express from "express";
@@ -14,8 +18,13 @@ import AdmZip from "adm-zip";
 import cors from "cors";
 import { FileContentParser } from "./defaults/classes";
 import { createClient } from "@supabase/supabase-js";
+import axios from "axios";
 app.use(cors());
 app.use(express.json());
+interface FileData {
+  path: string;
+  content: string;
+}
 const pro =
   "You are an expert web developer creating modern websites using React, TypeScript, and Tailwind CSS. Generate clean, focused website code based on user prompts.\n" +
   "\n" +
@@ -217,71 +226,70 @@ const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-app.post("/generatebackend", async (req, res) => {
-  const { prompt } = req.body;
-  try {
-    const backendResult = await anthropic.messages.create({
-      model: "claude-sonnet-4-0",
-      max_tokens: 15000,
-      temperature: 1,
-      system: BackendSystemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: prompt,
-            },
-          ],
-        },
-      ],
-    });
+// app.post("/generatebackend", async (req, res) => {
+//   const { prompt } = req.body;
+//   try {
+//     const backendResult = await anthropic.messages.create({
+//       model: "claude-sonnet-4-0",
+//       max_tokens: 15000,
+//       temperature: 1,
+//       system: BackendSystemPrompt,
+//       messages: [
+//         {
+//           role: "user",
+//           content: [
+//             {
+//               type: "text",
+//               text: prompt,
+//             },
+//           ],
+//         },
+//       ],
+//     });
 
-    console.log(backendResult);
-    //@ts-ignore
-    // const pasredData = JSON.parse(backendResult.content[0].text);
-    // console.log(pasredData);
+//     console.log(backendResult);
+//     //@ts-ignore
+//     // const pasredData = JSON.parse(backendResult.content[0].text);
+//     // console.log(pasredData);
 
-    res.json(backendResult.content[0].text);
-    // const backendResponse = JSON.parse(backendResult.content[0].text);
-  } catch (error) {
-    console.log(error);
-  }
-});
+//     res.json(backendResult.content[0].text);
+//     // const backendResponse = JSON.parse(backendResult.content[0].text);
+//   } catch (error) {
+//     console.log(error);
+//   }
+// });
 
 app.post("/generateFrontend", async (req, res) => {
   const { prompt } = req.body;
   console.log(prompt);
   try {
-    const result = await anthropic.messages.create({
-      model: "claude-sonnet-4-0",
-      max_tokens: 20000,
-      temperature: 1,
-      system: pro,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: prompt,
-            },
-          ],
-        },
-      ],
-    });
+    const result = await anthropic.messages
+      .stream({
+        model: "claude-sonnet-4-0",
+        max_tokens: 20000,
+        temperature: 1,
+        system: pro,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: prompt,
+              },
+            ],
+          },
+        ],
+      })
+      .on("text", (text) => {
+        console.log(text);
+      });
 
     console.log("completed");
     console.log(result);
     res.json(result);
   } catch (error) {}
 });
-
-interface FileData {
-  path: string;
-  content: string;
-}
 
 app.post("/test", async (req, res) => {
   const { message } = req.body;
@@ -437,28 +445,216 @@ app.post("/modify", async (req, res) => {
 });
 
 app.get("/zipFolder", async (req, res) => {
+  const zipFolderName = `project${Date.now()}.zip`;
   try {
     const zip = new AdmZip();
     const baseDir = path.join(__dirname, "../react-base");
     zip.addLocalFolder(baseDir);
-    const outDir = path.join(__dirname, "../generated-sites" , "proj123.zip" );
+    const outDir = path.join(__dirname, "../generated-sites", zipFolderName);
     zip.writeZip(outDir);
     const zipData = fs.readFileSync(outDir);
     const { data, error } = await supabase.storage
       .from("zipprojects")
-      .upload("archives/proj123.zip", zipData, {
+      .upload(`archives/${zipFolderName}`, zipData, {
         contentType: "application/zip",
         upsert: true,
       });
-   const publicUrl = await supabase.storage.from("zipprojects").getPublicUrl("proj123.zip")
-    
+    if (error) {
+      console.log("supabase error ", error);
+    }
+    const publicUrl = await supabase.storage
+      .from("zipprojects")
+      .getPublicUrl(zipFolderName);
 
-    res.json("done with zipping the file and sending to supabase ");
+    // adding into the queue the data {projectname , publicurl}
+
+    //
+    res.json(publicUrl);
   } catch (error) {
     console.log(error);
     res.json(error);
   }
 });
+
+app.post("/buildrun", async (req, res) => {
+  const { zipUrl } = req.body;
+
+  console.log(`Received zipUrl: ${zipUrl}`);
+
+  const outputPath = path.resolve(__dirname, "../output");
+  console.log(`Resolved output path: ${outputPath}`);
+
+  const cleanDirectory = (dirPath: string) => {
+    if (fs.existsSync(dirPath)) {
+      const files = fs.readdirSync(dirPath);
+      files.forEach((file) => {
+        const filePath = path.join(dirPath, file);
+        const stat = fs.statSync(filePath);
+
+        if (stat.isDirectory()) {
+          cleanDirectory(filePath);
+          fs.rmdirSync(filePath);
+        } else {
+          fs.unlinkSync(filePath);
+        }
+      });
+      console.log("✅ Output directory cleaned");
+    }
+  };
+
+  // Helper function to get MIME type
+  const getMimeType = (filename: string) => {
+    const ext = path.extname(filename).toLowerCase();
+    const mimeTypes: { [key: string]: string } = {
+      ".html": "text/html",
+      ".css": "text/css",
+      ".js": "application/javascript",
+      ".json": "application/json",
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".gif": "image/gif",
+      ".svg": "image/svg+xml",
+      ".ico": "image/x-icon",
+      ".woff": "font/woff",
+      ".woff2": "font/woff2",
+      ".ttf": "font/ttf",
+      ".eot": "application/vnd.ms-fontobject",
+    };
+    return mimeTypes[ext] || "application/octet-stream";
+  };
+
+  // Helper function to upload files recursively
+  const uploadDirectory = async (
+    dirPath: string,
+    bucketPath: string = "",
+    buildId: string
+  ) => {
+    const files = fs.readdirSync(dirPath);
+
+    for (const file of files) {
+      const filePath = path.join(dirPath, file);
+      const stat = fs.statSync(filePath);
+
+      if (stat.isDirectory()) {
+        await uploadDirectory(filePath, `${bucketPath}${file}/`, buildId);
+      } else {
+        const fileContent = fs.readFileSync(filePath);
+        const mimeType = getMimeType(file);
+
+        await supabase.storage
+          .from("static")
+          .upload(`sites/${buildId}/${bucketPath}${file}`, fileContent, {
+            contentType: mimeType,
+            upsert: true,
+          });
+      }
+    }
+  };
+
+  // Clean and ensure output directory exists
+  cleanDirectory(outputPath);
+  if (!fs.existsSync(outputPath)) {
+    fs.mkdirSync(outputPath, { recursive: true });
+  }
+
+  // Step 1: Build the Docker image
+  exec(
+    `docker build --build-arg ZIP_URL="${zipUrl}" -t react-builder .`,
+    { cwd: path.resolve(__dirname, "../") },
+    (err, stdout, stderr) => {
+      if (err) {
+        console.error("❌ Build failed:", stderr);
+        return res.status(500).json({ error: "Build failed", details: stderr });
+      }
+
+      console.log("✅ Build completed. Output:");
+      console.log(stdout);
+
+      // Step 2: Run the Docker container and mount the output folder
+      exec(
+        `docker run --rm -v "${outputPath}:/output" react-builder`,
+        async (err, stdout, stderr) => {
+          if (err) {
+            console.error("❌ Run failed:", stderr);
+            return res
+              .status(500)
+              .json({ error: "Run failed", details: stderr });
+          }
+
+          console.log("✅ Build output copied to:", outputPath);
+          console.log("Container output:", stdout);
+
+          try {
+            // Step 3: Upload files after Docker container completes
+            const buildId = `build_${Date.now()}`;
+
+            // Upload individual files for iframe preview
+            await uploadDirectory(outputPath, "", buildId);
+
+            // Also create ZIP for download
+            const zip = new AdmZip();
+            zip.addLocalFolder(outputPath);
+            const zipFileName = `${buildId}.zip`;
+
+            const tempZipPath = path.join(__dirname, "../temp", zipFileName);
+            if (!fs.existsSync(path.dirname(tempZipPath))) {
+              fs.mkdirSync(path.dirname(tempZipPath), { recursive: true });
+            }
+
+            zip.writeZip(tempZipPath);
+            const zipData = fs.readFileSync(tempZipPath);
+
+            const { data, error } = await supabase.storage
+              .from("static")
+              .upload(`archives/${zipFileName}`, zipData, {
+                contentType: "application/zip",
+                upsert: true,
+              });
+
+            if (error) {
+              console.error("❌ Supabase upload error:", error);
+              return res.status(500).json({
+                error: "Failed to upload to Supabase",
+                details: error,
+              });
+            }
+
+            // Get URLs
+            const { data: indexUrlData } = supabase.storage
+              .from("static")
+              .getPublicUrl(`sites/${buildId}/index.html`);
+
+            const { data: zipUrlData } = supabase.storage
+              .from("static")
+              .getPublicUrl(`archives/${zipFileName}`);
+
+            // Clean up temp zip file
+            fs.unlinkSync(tempZipPath);
+
+            console.log("✅ Build completed and uploaded successfully");
+
+            res.json({
+              success: true,
+              buildId: buildId,
+              previewUrl: indexUrlData.publicUrl, // Use this for iframe
+              downloadUrl: zipUrlData.publicUrl, // Use this for download
+              message: "Build completed and uploaded successfully",
+            });
+          } catch (uploadError) {
+            console.error("❌ Upload process failed:", uploadError);
+            res.status(500).json({
+              error: "Upload process failed",
+            });
+          }
+        }
+      );
+    }
+  );
+});
+
+
+//@ts-ignore
 
 app.listen(3000, () => {
   console.log("Server is running on port 3000");
@@ -470,5 +666,3 @@ app.listen(3000, () => {
 //   console.log("Response has been saved to claude-response.json");
 // }
 // main();
-
-
