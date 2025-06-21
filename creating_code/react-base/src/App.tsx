@@ -1,17 +1,14 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Home } from './pages/Home';
+import Home from './pages/Home';
+import './App.css';
+import Index from './pages/Index';
 
 function App() {
   return (
     <Router>
       <div className="App">
         <Routes>
-          <Route path="/" element={<Home />} />
-          {/* Add more routes here as needed */}
-          {/* <Route path="/menu" element={<Menu />} /> */}
-          {/* <Route path="/about" element={<About />} /> */}
-          {/* <Route path="/contact" element={<Contact />} /> */}
+          <Route path="/" element={<Index />} />
         </Routes>
       </div>
     </Router>

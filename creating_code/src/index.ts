@@ -12,17 +12,26 @@ import cors from "cors";
 import { FileContentParser } from "./defaults/classes";
 import { createClient } from "@supabase/supabase-js";
 import axios from "axios";
+import { IntelligentFileModifier } from "./services/filemodifier";
+import { exec, execSync } from "child_process";
+import { drizzle } from "drizzle-orm/neon-http";
+
+import userRoutes from "./routes/users";
+import projectRoutes from "./routes/projects";
+import messageRoutes from "./routes/messages";
 app.use(cors());
 app.use(express.json());
 interface FileData {
   path: string;
   content: string;
 }
+
+console.log(process.env.DATABASE_URL);
 const pro =
   "You are an expert web developer creating modern websites using React, TypeScript, and Tailwind CSS. Generate clean, focused website code based on user prompts.\n" +
   "\n" +
   "## Your Role:\n" +
-  "Create functional websites with essential sections and professional design.You can use your create approch to make the website look as good as possible you can use cool colours that best suits the website requested by the user , use gradients , differnt effects with tailwind only , dont go for any expernal liberary like framer motion.\n" +
+  "Create functional websites with essential sections and professional design.You can use your create approch to make the website look as good as possible you can use cool colours that best suits the website requested by the user , use gradients , differnt effects with tailwind only , dont go for any expernal liberary like framer motion.  also keep mind if you are using any of the lucide react icons while making the website import only from this `Home, Menu, Search, Settings, User, Bell, Mail, Phone, MessageCircle, Heart, Star, Bookmark, Share, Download, Upload, Edit, Delete, Plus, Minus, X, Check, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, MoreHorizontal, MoreVertical, File, FileText, Folder, FolderOpen, Save, Copy, Clipboard, Image, Video, Music, Pdf, DownloadCloud, UploadCloud, Eye, EyeOff, Lock, Unlock, Calendar, Clock, Filter, SortAsc, SortDesc, RefreshCw, Loader, ToggleLeft, ToggleRight, Slider, Send, Reply, Forward, AtSign, Hash, Link, ExternalLink, Globe, Wifi, Bluetooth, Play, Pause, Stop, SkipBack, SkipForward, Volume2, VolumeOff, Camera, Mic, MicOff, Headphones, Radio, Tv, ShoppingCart, ShoppingBag, CreditCard, DollarSign, Tag, Gift, Truck, Package, Receipt, Briefcase, Building, Calculator, ChartBar, ChartLine, ChartPie, Table, Database, Server, Code, Terminal, GitBranch, Layers, LayoutGrid, LayoutList, Info, AlertCircle, AlertTriangle, CheckCircle, XCircle, HelpCircle, Shield, ShieldCheck, ThumbsUp, ThumbsDown, CalendarDays, Clock3, Timer, AlarmClock, Hourglass, MapPin, Navigation, Car, Plane, Train, Bus, Bike, Compass, Route, Wrench, Hammer, Scissors, Ruler, Paintbrush, Pen, Pencil, Eraser, Magnet, Flashlight, HeartPulse, Activity, Pill, Thermometer, Stethoscope, Cross, Sun, Moon, Cloud, CloudRain, Snow, Wind, Leaf, Flower, Tree, Smartphone, Tablet, Laptop, Monitor, Keyboard, Mouse, Printer, HardDrive, Usb, Battery, Zap, Cpu, Coffee, Pizza, Apple, Wine, Utensils, ChefHat, Trophy, Target, Gamepad, Dumbbell, Football, Bicycle, Key, Fingerprint, ShieldLock, UserCheck, Scan, Users, UserPlus, MessageSquare, Chat, Group, Handshake, Book, Newspaper, Feather, Type, AlignLeft, AlignCenter, Bold, Italic, Underline, ArrowUpRight, ArrowDownLeft, CornerUpRight, CornerDownLeft, RotateCw, RotateCcw, Move, Maximize, Minimize, Circle, Square, Triangle, Hexagon, StarHalf, Palette, Droplet, Brush` dont use any  other icons from lucite-react other than this \n" +
   "\n" +
   "- User already has a Vite React project with TypeScript setup\n" +
   "- All shadcn/ui components are available in src/components/ui/\n" +
@@ -251,10 +260,13 @@ const supabase = createClient(
 //     console.log(error);
 //   }
 // });
+app.use("/api/users", userRoutes);
+app.use("/api/projects", projectRoutes);
+app.use("/api/messages", messageRoutes);
 
 app.post("/generateFrontend", async (req, res) => {
   const { prompt } = req.body;
-  console.log(prompt);
+  console.log(prompt, "prompt");
   try {
     const result = await anthropic.messages
       .stream({
@@ -278,9 +290,11 @@ app.post("/generateFrontend", async (req, res) => {
         console.log(text);
       });
 
+    console.log("reched here ");
+    const finalmessage = await result.finalMessage();
     console.log("completed");
-    console.log(result);
-    res.json(result);
+    console.log(finalmessage);
+    res.json(finalmessage);
   } catch (error) {}
 });
 
@@ -337,23 +351,26 @@ app.post("/write-files", (req, res) => {
 
 app.post("/generateChanges", async (req, res) => {
   const { prompt } = req.body;
-  
+
   try {
     console.log(`🚀 8-Step Modification Workflow: "${prompt}"`);
-    
-   
+
     const reactBasePath = path.join(__dirname, "../react-base");
-    
-    const intelligentModifier = new IntelligentFileModifier(anthropic, reactBasePath);
+
+    const intelligentModifier = new IntelligentFileModifier(
+      anthropic,
+      reactBasePath
+    );
     const result = await intelligentModifier.processModification(prompt);
-    
+
     if (result.success) {
       console.log(`✅ 8-Step workflow completed successfully!`);
-      console.log(`📁 Modified files: ${result.selectedFiles?.join(', ')}`);
+      console.log(`📁 Modified files: ${result.selectedFiles?.join(", ")}`);
       console.log(`🎯 Approach: ${result.approach}`);
-      console.log(`📊 Code ranges modified: ${result.modifiedRanges?.length || 0}`);
-      
-      
+      console.log(
+        `📊 Code ranges modified: ${result.modifiedRanges?.length || 0}`
+      );
+
       res.json({
         success: true,
         workflow: "8-step-ast-modification",
@@ -362,37 +379,39 @@ app.post("/generateChanges", async (req, res) => {
         modifiedRanges: result.modifiedRanges?.length || 0,
         details: {
           step1: "Project tree + metadata analyzed",
-          step2: `Claude selected ${result.selectedFiles?.length || 0} relevant files`,
-          step3: "Files parsed with AST to create detailed trees", 
+          step2: `Claude selected ${
+            result.selectedFiles?.length || 0
+          } relevant files`,
+          step3: "Files parsed with AST to create detailed trees",
           step4: "Claude pinpointed exact AST nodes needing modification",
           step5: "Code snippets extracted from target nodes",
           step6: "Claude modified the specific code snippets",
           step7: "Mapped AST nodes to exact source code ranges",
-          step8: "Replaced code ranges with modified snippets"
+          step8: "Replaced code ranges with modified snippets",
         },
-        modifications: result.modifiedRanges?.map(range => ({
+        modifications: result.modifiedRanges?.map((range) => ({
           file: range.file,
           linesModified: `${range.range.startLine}-${range.range.endLine}`,
           originalCode: range.range.originalCode.substring(0, 100) + "...", // Preview
-          modifiedCode: range.modifiedCode.substring(0, 100) + "..." // Preview
-        }))
+          modifiedCode: range.modifiedCode.substring(0, 100) + "...", // Preview
+        })),
       });
     } else {
       console.log(`❌ 8-Step workflow failed: ${result.error}`);
       res.status(400).json({
         success: false,
         workflow: "8-step-ast-modification",
-        error: result.error || 'Modification workflow failed',
-        step: "Failed during workflow execution"
+        error: result.error || "Modification workflow failed",
+        step: "Failed during workflow execution",
       });
     }
   } catch (error) {
-    console.error('Error in 8-step workflow:', error);
+    console.error("Error in 8-step workflow:", error);
     res.status(500).json({
       success: false,
-      workflow: "8-step-ast-modification", 
-      error: 'Internal server error during workflow',
-      step: "System error"
+      workflow: "8-step-ast-modification",
+      error: "Internal server error during workflow",
+      step: "System error",
     });
   }
 });
@@ -457,7 +476,7 @@ app.get("/zipFolder", async (req, res) => {
     }
     const publicUrl = await supabase.storage
       .from("zipprojects")
-      .getPublicUrl(zipFolderName);
+      .getPublicUrl(`archives/${zipFolderName}`);
 
     // adding into the queue the data {projectname , publicurl}
 
@@ -479,19 +498,23 @@ app.post("/buildrun", async (req, res) => {
 
   const cleanDirectory = (dirPath: string) => {
     if (fs.existsSync(dirPath)) {
-      const files = fs.readdirSync(dirPath);
-      files.forEach((file) => {
-        const filePath = path.join(dirPath, file);
-        const stat = fs.statSync(filePath);
+      try {
+        const files = fs.readdirSync(dirPath);
+        files.forEach((file) => {
+          const filePath = path.join(dirPath, file);
+          const stat = fs.statSync(filePath);
 
-        if (stat.isDirectory()) {
-          cleanDirectory(filePath);
-          fs.rmdirSync(filePath);
-        } else {
-          fs.unlinkSync(filePath);
-        }
-      });
-      console.log("✅ Output directory cleaned");
+          if (stat.isDirectory()) {
+            cleanDirectory(filePath);
+            fs.rmdirSync(filePath);
+          } else {
+            fs.unlinkSync(filePath);
+          }
+        });
+        console.log("✅ Output directory cleaned");
+      } catch (error) {
+        console.error("❌ Error cleaning directory:", error);
+      }
     }
   };
 
@@ -513,6 +536,9 @@ app.post("/buildrun", async (req, res) => {
       ".woff2": "font/woff2",
       ".ttf": "font/ttf",
       ".eot": "application/vnd.ms-fontobject",
+      ".webp": "image/webp",
+      ".mp4": "video/mp4",
+      ".webm": "video/webm",
     };
     return mimeTypes[ext] || "application/octet-stream";
   };
@@ -523,25 +549,35 @@ app.post("/buildrun", async (req, res) => {
     bucketPath: string = "",
     buildId: string
   ) => {
-    const files = fs.readdirSync(dirPath);
+    try {
+      const files = fs.readdirSync(dirPath);
 
-    for (const file of files) {
-      const filePath = path.join(dirPath, file);
-      const stat = fs.statSync(filePath);
+      for (const file of files) {
+        const filePath = path.join(dirPath, file);
+        const stat = fs.statSync(filePath);
 
-      if (stat.isDirectory()) {
-        await uploadDirectory(filePath, `${bucketPath}${file}/`, buildId);
-      } else {
-        const fileContent = fs.readFileSync(filePath);
-        const mimeType = getMimeType(file);
+        if (stat.isDirectory()) {
+          await uploadDirectory(filePath, `${bucketPath}${file}/`, buildId);
+        } else {
+          const fileContent = fs.readFileSync(filePath);
+          const mimeType = getMimeType(file);
 
-        await supabase.storage
-          .from("static")
-          .upload(`sites/${buildId}/${bucketPath}${file}`, fileContent, {
-            contentType: mimeType,
-            upsert: true,
-          });
+          const { error } = await supabase.storage
+            .from("static")
+            .upload(`sites/${buildId}/${bucketPath}${file}`, fileContent, {
+              contentType: mimeType,
+              upsert: true,
+            });
+
+          if (error) {
+            console.error(`❌ Failed to upload ${file}:`, error);
+            throw error;
+          }
+        }
       }
+    } catch (error) {
+      console.error("❌ Error in uploadDirectory:", error);
+      throw error;
     }
   };
 
@@ -555,18 +591,19 @@ app.post("/buildrun", async (req, res) => {
   exec(
     `docker build --build-arg ZIP_URL="${zipUrl}" -t react-builder .`,
     { cwd: path.resolve(__dirname, "../") },
+    //@ts-ignore
     (err, stdout, stderr) => {
       if (err) {
         console.error("❌ Build failed:", stderr);
         return res.status(500).json({ error: "Build failed", details: stderr });
       }
 
-      console.log("✅ Build completed. Output:");
-      console.log(stdout);
+      console.log("✅ Build completed");
 
       // Step 2: Run the Docker container and mount the output folder
       exec(
         `docker run --rm -v "${outputPath}:/output" react-builder`,
+        //@ts-ignore
         async (err, stdout, stderr) => {
           if (err) {
             console.error("❌ Run failed:", stderr);
@@ -576,64 +613,97 @@ app.post("/buildrun", async (req, res) => {
           }
 
           console.log("✅ Build output copied to:", outputPath);
-          console.log("Container output:", stdout);
 
           try {
+            // Check if output directory has files
+            const outputFiles = fs.readdirSync(outputPath);
+            if (outputFiles.length === 0) {
+              throw new Error("No build files found in output directory");
+            }
+
             // Step 3: Upload files after Docker container completes
             const buildId = `build_${Date.now()}`;
-
-            // Upload individual files for iframe preview
-            await uploadDirectory(outputPath, "", buildId);
-
-            // Also create ZIP for download
-            const zip = new AdmZip();
-            zip.addLocalFolder(outputPath);
-            const zipFileName = `${buildId}.zip`;
-
-            const tempZipPath = path.join(__dirname, "../temp", zipFileName);
-            if (!fs.existsSync(path.dirname(tempZipPath))) {
-              fs.mkdirSync(path.dirname(tempZipPath), { recursive: true });
-            }
-
-            zip.writeZip(tempZipPath);
-            const zipData = fs.readFileSync(tempZipPath);
-
-            const { data, error } = await supabase.storage
-              .from("static")
-              .upload(`archives/${zipFileName}`, zipData, {
-                contentType: "application/zip",
-                upsert: true,
-              });
-
-            if (error) {
-              console.error("❌ Supabase upload error:", error);
-              return res.status(500).json({
-                error: "Failed to upload to Supabase",
-                details: error,
-              });
-            }
-
-            // Get URLs
-            const { data: indexUrlData } = supabase.storage
-              .from("static")
-              .getPublicUrl(`sites/${buildId}/index.html`);
-
-            const { data: zipUrlData } = supabase.storage
-              .from("static")
-              .getPublicUrl(`archives/${zipFileName}`);
-
-            // Clean up temp zip file
-            fs.unlinkSync(tempZipPath);
-
-            console.log("✅ Build completed and uploaded successfully");
+            console.log(`📤 Starting upload for build: ${buildId}`);
+            fs.writeFileSync(
+              path.join(outputPath, "vercel.json"),
+              JSON.stringify({
+                outputDirectory: ".",
+                headers: [
+                  {
+                    source: "/(.*)",
+                    headers: [
+                      {
+                        // Setting the value to an empty string tells Vercel
+                        // to remove this header from the response.
+                        key: "X-Frame-Options",
+                        value: "",
+                      },
+                    ],
+                  },
+                ],
+              })
+            );
+            const vercelUrl = await vercelDeploy({ outputPath });
 
             res.json({
               success: true,
-              buildId: buildId,
-              previewUrl: indexUrlData.publicUrl, // Use this for iframe
-              downloadUrl: zipUrlData.publicUrl, // Use this for download
-              message: "Build completed and uploaded successfully",
+              buildId,
+              previewUrl: vercelUrl,
+              message: "Build completed and deployed to Vercel successfully",
             });
+
+            // // Upload individual files for iframe preview
+            // await uploadDirectory(outputPath, "", buildId);
+            // console.log("✅ Individual files uploaded");
+
+            // // Also create ZIP for download
+            // const zip = new AdmZip();
+            // zip.addLocalFolder(outputPath);
+            // const zipFileName = `${buildId}.zip`;
+
+            // const tempZipPath = path.join(__dirname, "../temp", zipFileName);
+            // if (!fs.existsSync(path.dirname(tempZipPath))) {
+            //   fs.mkdirSync(path.dirname(tempZipPath), { recursive: true });
+            // }
+
+            // zip.writeZip(tempZipPath);
+            // const zipData = fs.readFileSync(tempZipPath);
+
+            // const { data, error } = await supabase.storage
+            //   .from("static")
+            //   .upload(`archives/${zipFileName}`, zipData, {
+            //     contentType: "application/zip",
+            //     upsert: true,
+            //   });
+
+            // if (error) {
+            //   console.error("❌ Supabase ZIP upload error:", error);
+            //   throw error;
+            // }
+
+            // console.log("✅ ZIP file uploaded");
+
+            // // Get URLs
+            // const { data: indexUrlData } = supabase.storage
+            //   .from("static")
+            //   .getPublicUrl(`sites/${buildId}/index.html`);
+
+            // const { data: zipUrlData } = supabase.storage
+            //   .from("static")
+            //   .getPublicUrl(`archives/${zipFileName}`);
+
+            // // Clean up temp zip file
+            // fs.unlinkSync(tempZipPath);
+
+            // console.log("✅ Build completed and uploaded successfully");
+
+            // res.json({
+            //   success: true,
+            //   buildId: buildId,
+            //   previewUrl: indexUrlData.publicUrl,
+            //   downloadUrl: zipUrlData.publicUrl,
+            //   message: "Build completed and uploaded successfully",
+            // });
           } catch (uploadError) {
             console.error("❌ Upload process failed:", uploadError);
             res.status(500).json({
@@ -646,6 +716,41 @@ app.post("/buildrun", async (req, res) => {
   );
 });
 
+const vercelDeploy = ({ outputPath }: { outputPath: string }) => {
+  return new Promise((resolve, reject) => {
+    exec(`vercel --prod --yes --cwd "${outputPath}"`, (err, stdout, stderr) => {
+      if (err) {
+        console.error("❌ Vercel deploy failed:", stderr);
+        reject(stderr);
+      } else {
+        console.log("✅ Vercel deploy output:", stdout);
+        // Extract the final URL from the output
+        const match = stdout.match(/https?:\/\/[^\s]+\.vercel\.app/);
+        const deployedUrl = match ? match[0] : null;
+        if (deployedUrl) {
+          resolve(deployedUrl);
+        } else {
+          reject("❌ No URL found in Vercel output");
+        }
+      }
+    });
+  });
+};
+
+// async function vercelDeploy({ outputPath }: { outputPath: string }) {
+//   try {
+//     const result = execSync(
+//       `vercel deploy --prebuilt --yes --cwd ${outputPath}`
+//     ).toString();
+//     const match = result.match(/https:\/\/[^\s]+\.vercel\.app/);
+//     if (!match)
+//       throw new Error("Could not extract deployment URL from Vercel output");
+//     return match[0];
+//   } catch (err) {
+//     console.error("❌ Vercel deploy error:", err);
+//     throw err;
+//   }
+// }
 
 //@ts-ignore
 
