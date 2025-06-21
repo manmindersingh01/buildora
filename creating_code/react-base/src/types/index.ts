@@ -1,39 +1,47 @@
-export interface Pizza {
+export interface Room {
   id: string;
   name: string;
-  description: string;
+  type: string;
+  capacity: number;
   price: number;
-  image: string;
-  category: 'vegetarian' | 'non-vegetarian' | 'specialty';
-  size: 'small' | 'medium' | 'large';
-  ingredients: string[];
+  images: string[];
+  amenities: string[];
+  description: string;
+  available: boolean;
 }
 
-export interface Category {
+export interface Amenity {
   id: string;
   name: string;
+  icon: string;
   description: string;
-  image: string;
 }
 
-export interface Testimonial {
+export interface Review {
   id: string;
   name: string;
   rating: number;
   comment: string;
-  avatar: string;
+  date: string;
+  avatar?: string;
 }
 
-export interface CartItem {
-  pizza: Pizza;
-  quantity: number;
-  selectedSize: 'small' | 'medium' | 'large';
-}
-
-export interface OrderItem {
+export interface Booking {
   id: string;
-  pizzaId: string;
-  quantity: number;
-  size: 'small' | 'medium' | 'large';
-  price: number;
+  roomId: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  totalPrice: number;
+  status: 'confirmed' | 'pending' | 'cancelled';
+}
+
+export interface ContactInfo {
+  phone: string;
+  email: string;
+  address: string;
+  coordinates: {
+    lat: number;
+    lng: number;
+  };
 }

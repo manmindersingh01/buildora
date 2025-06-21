@@ -1,120 +1,80 @@
 import { useState, useEffect } from 'react';
-import { Todo, TodoStats, FilterOptions } from '@/types';
+import axios from 'axios';
+import type { Todo } from '@/types';
 
 export function useTodos() {
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [filteredTodos, setFilteredTodos] = useState<Todo[]>([]);
-  const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load todos from localStorage on mount
-  useEffect(() => {
-    const savedTodos = localStorage.getItem('todos');
-    if (savedTodos) {
-      const parsedTodos = JSON.parse(savedTodos);
-      setTodos(parsedTodos);
-      setFilteredTodos(parsedTodos);
+  // Fetch todos
+  const fetchTodos = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get('/api/todos');
+      if (response.data.success) {
+        setTodos(response.data.data || []);
+      }
+    } catch (err) {
+      setError('Failed to fetch todos');
+      console.error('Error fetching todos:', err);
+    } finally {
+      setLoading(false);
     }
-    setIsLoading(false);
+  };
+
+  // Add todo
+  const addTodo = async (todoData: Omit<Todo, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const response = await axios.post('/api/todos', todoData);
+      if (response.data.success) {
+        setTodos(prev => [response.data.data, ...prev]);
+      }
+    } catch (err) {
+      setError('Failed to add todo');
+      console.error('Error adding todo:', err);
+    }
+  };
+
+  // Update todo
+  const updateTodo = async (id: string, updates: Partial<Todo>) => {
+    try {
+      const response = await axios.put(`/api/todos/${id}`, updates);
+      if (response.data.success) {
+        setTodos(prev => prev.map(todo => 
+          todo.id === id ? { ...todo, ...response.data.data } : todo
+        ));
+      }
+    } catch (err) {
+      setError('Failed to update todo');
+      console.error('Error updating todo:', err);
+    }
+  };
+
+  // Delete todo
+  const deleteTodo = async (id: string) => {
+    try {
+      const response = await axios.delete(`/api/todos/${id}`);
+      if (response.data.success) {
+        setTodos(prev => prev.filter(todo => todo.id !== id));
+      }
+    } catch (err) {
+      setError('Failed to delete todo');
+      console.error('Error deleting todo:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchTodos();
   }, []);
 
-  // Save todos to localStorage whenever todos change
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem('todos', JSON.stringify(todos));
-    }
-  }, [todos, isLoading]);
-
-  const addTodo = (todoData: Omit<Todo, 'id' | 'createdAt'>) => {
-    const newTodo: Todo = {
-      ...todoData,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString()
-    };
-    setTodos(prev => [newTodo, ...prev]);
-  };
-
-  const updateTodo = (id: string, todoData: Omit<Todo, 'id' | 'createdAt'>) => {
-    setTodos(prev => prev.map(todo => 
-      todo.id === id 
-        ? { ...todo, ...todoData }
-        : todo
-    ));
-    setEditingTodo(null);
-  };
-
-  const deleteTodo = (id: string) => {
-    setTodos(prev => prev.filter(todo => todo.id !== id));
-  };
-
-  const toggleTodo = (id: string) => {
-    setTodos(prev => prev.map(todo => 
-      todo.id === id 
-        ? { ...todo, completed: !todo.completed }
-        : todo
-    ));
-  };
-
-  const filterTodos = (filters: FilterOptions) => {
-    let filtered = [...todos];
-
-    // Filter by search term
-    if (filters.searchTerm) {
-      filtered = filtered.filter(todo => 
-        todo.title.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
-        (todo.description && todo.description.toLowerCase().includes(filters.searchTerm.toLowerCase()))
-      );
-    }
-
-    // Filter by status
-    if (filters.status !== 'all') {
-      filtered = filtered.filter(todo => 
-        filters.status === 'completed' ? todo.completed : !todo.completed
-      );
-    }
-
-    // Filter by priority
-    if (filters.priority !== 'all') {
-      filtered = filtered.filter(todo => todo.priority === filters.priority);
-    }
-
-    // Filter by category
-    if (filters.category !== 'all') {
-      filtered = filtered.filter(todo => todo.category === filters.category);
-    }
-
-    setFilteredTodos(filtered);
-  };
-
-  const getStats = (): TodoStats => {
-    const total = todos.length;
-    const completed = todos.filter(todo => todo.completed).length;
-    const pending = total - completed;
-    const overdue = todos.filter(todo => 
-      todo.dueDate && 
-      new Date(todo.dueDate) < new Date() && 
-      !todo.completed
-    ).length;
-
-    return { total, completed, pending, overdue };
-  };
-
-  const getCategories = (): string[] => {
-    const categories = Array.from(new Set(todos.map(todo => todo.category)));
-    return categories.sort();
-  };
-
   return {
-    todos: filteredTodos,
-    editingTodo,
-    isLoading,
+    todos,
+    loading,
+    error,
     addTodo,
     updateTodo,
     deleteTodo,
-    toggleTodo,
-    filterTodos,
-    setEditingTodo,
-    getStats,
-    getCategories
+    refetch: fetchTodos
   };
 }
