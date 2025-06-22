@@ -260,6 +260,9 @@ const supabase = createClient(
 //     console.log(error);
 //   }
 // });
+app.get("/", (req, res) => {
+  res.json("bckend is up");
+});
 app.use("/api/users", userRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/messages", messageRoutes);
