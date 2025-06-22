@@ -3,14 +3,23 @@ import { useState } from "react";
 import "./App.css";
 import Index from "./pages/Index";
 import ChatPage from "./pages/ChatPage";
+import Iframe from "./pages/Iframe";
 
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+
+console.log(import.meta.env.VITE_DATABASE_URL);
 function App() {
   return (
     <>
-      <Index />
-      {/* <ChatPage /> */}
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/chatPage" element={<ChatPage />} />
+        </Routes>
+      </BrowserRouter>
     </>
   );
 }
 
 export default App;
+
