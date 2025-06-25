@@ -35,7 +35,7 @@ function triggerAzureContainerJob(sourceZipUrl, buildId, config) {
     --name ${jobName} \
     --resource-group ${config.resourceGroup} \
     --environment ${config.containerAppEnv} \
-    --image ${config.acrName}.azurecr.io/react-builder-swa:v2 \
+    --image ${config.acrName}.azurecr.io/react-builder-swa:v4 \
     --cpu 2.0 --memory 4.0Gi \
     --trigger-type Manual \
     --registry-server ${config.acrName}.azurecr.io \
@@ -64,8 +64,8 @@ function triggerAzureContainerJob(sourceZipUrl, buildId, config) {
             if (status === "Succeeded") {
                 yield execPromise(`az containerapp job delete --name ${jobName} --resource-group ${config.resourceGroup} --yes`);
                 // Return SWA URLs
-                const envName = `build-${buildId.substring(0, 8)}`;
-                const previewUrl = `https://${envName}--${process.env.AZURE_SWA_DEFAULT_HOSTNAME}`;
+                //const envName = `build-${buildId.substring(0, 8)}`;
+                const previewUrl = `https://${process.env.AZURE_SWA_DEFAULT_HOSTNAME}`;
                 const downloadUrl = `https://${config.storageAccountName}.blob.core.windows.net/build-outputs/${buildId}/build_${buildId}.zip`;
                 return JSON.stringify({
                     previewUrl,

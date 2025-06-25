@@ -5,11 +5,9 @@ echo "🚀 Starting Azure SWA build process..."
 echo "📋 Build ID: $BUILD_ID"
 echo "📥 Downloading source from: $SOURCE_ZIP_URL"
 
-# Download and extract the source code
+# Download and extract
 wget -O source.zip "$SOURCE_ZIP_URL"
 unzip -q source.zip -d ./temp
-
-# Handle nested folders from zip
 if [ $(ls ./temp | wc -l) -eq 1 ] && [ -d "./temp/$(ls ./temp)" ]; then
   mv ./temp/$(ls ./temp)/* ./
   mv ./temp/$(ls ./temp)/.* ./ 2>/dev/null || true
@@ -19,15 +17,14 @@ else
 fi
 rm -rf ./temp source.zip
 
-# Install dependencies
+# Build
 echo "📦 Installing dependencies..."
 npm install
 
-# Build the project with RELATIVE paths (important!)
-echo "🔨 Building project with relative paths..."
+echo "🔨 Building project..."
 npx vite build --base="./"
 
-# Find build output folder
+# Find build directory
 if [ -d "./dist" ]; then
   BUILD_DIR="./dist"
 elif [ -d "./build" ]; then
@@ -39,48 +36,33 @@ fi
 
 echo "✅ Build output found in: $BUILD_DIR"
 
-# Create staticwebapp.config.json for SWA configuration
+# Add SWA config
 cat > "$BUILD_DIR/staticwebapp.config.json" << EOF
 {
   "navigationFallback": {
-    "rewrite": "/index.html",
-    "exclude": ["/assets/*", "/*.{css,js,ico,png,jpg,jpeg,gif,svg,json}"]
-  },
-  "mimeTypes": {
-    ".json": "application/json",
-    ".js": "application/javascript",
-    ".mjs": "application/javascript"
+    "rewrite": "/index.html"
   }
 }
 EOF
 
-# Create unique environment name
-DEPLOYMENT_NAME="build-${BUILD_ID:0:8}"
-
-# Deploy to Static Web Apps
+# Deploy using npx (ensures latest version)
 echo "🌐 Deploying to Azure Static Web Apps..."
-echo "📍 Environment: $DEPLOYMENT_NAME"
+cd "$BUILD_DIR"
 
-# Deploy using SWA CLI - IMPORTANT: use app-location as build directory
-swa deploy \
-  --app-location "$BUILD_DIR" \
+# This is the key - use npx with full package name
+npx -y @azure/static-web-apps-cli@latest deploy \
+  . \
   --deployment-token "$SWA_DEPLOYMENT_TOKEN" \
-  --env "$DEPLOYMENT_NAME" \
-  --no-use-keychain \
-  --verbose
+  --verbose \
+  --no-use-keychain
 
-# Get the preview URL
-PREVIEW_URL="https://${DEPLOYMENT_NAME}--${SWA_DEFAULT_HOSTNAME}"
-
-echo "✅ Deployed to: $PREVIEW_URL"
+cd ..
 
 # Create ZIP for download
 ZIP_NAME="build_${BUILD_ID}.zip"
-echo "📦 Creating ZIP for download..."
 cd "$BUILD_DIR" && zip -r "../$ZIP_NAME" . && cd ..
 
-# Upload ZIP to blob storage
-echo "☁️ Uploading ZIP to Azure Blob Storage..."
+# Upload ZIP
 az storage blob upload \
   --file "$ZIP_NAME" \
   --container-name "build-outputs" \
@@ -88,6 +70,6 @@ az storage blob upload \
   --connection-string "$STORAGE_CONNECTION_STRING" \
   --overwrite
 
-echo "🎉 Build and deployment completed!"
-echo "🌐 Preview URL: $PREVIEW_URL"
-echo "📥 Download URL: https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/build-outputs/${BUILD_ID}/${ZIP_NAME}"
+echo "🎉 Deployment completed!"
+echo "🌐 URL: https://${SWA_DEFAULT_HOSTNAME}"
+echo "📥 Download: https://${STORAGE_ACCOUNT_NAME}.blob.core.windows.net/build-outputs/${BUILD_ID}/${ZIP_NAME}"
