@@ -1,6 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { BackendSystemPrompt, systemPrompt } from "./defaults/promt";
-import { Stream } from "@anthropic-ai/sdk/core/streaming";
 import "dotenv/config";
 import * as fs from "fs";
 import express from "express";
@@ -15,20 +14,25 @@ import axios from "axios";
 import { IntelligentFileModifier } from "./services/filemodifier";
 import { exec, execSync } from "child_process";
 import { drizzle } from "drizzle-orm/neon-http";
-
+import { v4 as uuidv4 } from "uuid";
 import userRoutes from "./routes/users";
 import projectRoutes from "./routes/projects";
 import messageRoutes from "./routes/messages";
+import { parseFrontendCode } from "./utils/newparser";
+import { Request, Response } from "express";
+import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
+import {
+  uploadToAzureBlob,
+  triggerAzureContainerJob,
+} from "./services/azure-deploy";
 app.use(cors());
 app.use(express.json());
 interface FileData {
   path: string;
   content: string;
 }
-
-console.log(process.env.DATABASE_URL);
 const pro =
-  "You are an expert web developer creating modern websites using React, TypeScript, and Tailwind CSS. Generate clean, focused website code based on user prompts.\n" +
+  "You are an expert  web developer creating modern websites using React, TypeScript, and Tailwind CSS. Generate clean, focused website code based on user prompts.\n" +
   "\n" +
   "## Your Role:\n" +
   "Create functional websites with essential sections and professional design.You can use your create approch to make the website look as good as possible you can use cool colours that best suits the website requested by the user , use gradients , differnt effects with tailwind only , dont go for any expernal liberary like framer motion.  also keep mind if you are using any of the lucide react icons while making the website import only from this `Home, Menu, Search, Settings, User, Bell, Mail, Phone, MessageCircle, Heart, Star, Bookmark, Share, Download, Upload, Edit, Delete, Plus, Minus, X, Check, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, MoreHorizontal, MoreVertical, File, FileText, Folder, FolderOpen, Save, Copy, Clipboard, Image, Video, Music, Pdf, DownloadCloud, UploadCloud, Eye, EyeOff, Lock, Unlock, Calendar, Clock, Filter, SortAsc, SortDesc, RefreshCw, Loader, ToggleLeft, ToggleRight, Slider, Send, Reply, Forward, AtSign, Hash, Link, ExternalLink, Globe, Wifi, Bluetooth, Play, Pause, Stop, SkipBack, SkipForward, Volume2, VolumeOff, Camera, Mic, MicOff, Headphones, Radio, Tv, ShoppingCart, ShoppingBag, CreditCard, DollarSign, Tag, Gift, Truck, Package, Receipt, Briefcase, Building, Calculator, ChartBar, ChartLine, ChartPie, Table, Database, Server, Code, Terminal, GitBranch, Layers, LayoutGrid, LayoutList, Info, AlertCircle, AlertTriangle, CheckCircle, XCircle, HelpCircle, Shield, ShieldCheck, ThumbsUp, ThumbsDown, CalendarDays, Clock3, Timer, AlarmClock, Hourglass, MapPin, Navigation, Car, Plane, Train, Bus, Bike, Compass, Route, Wrench, Hammer, Scissors, Ruler, Paintbrush, Pen, Pencil, Eraser, Magnet, Flashlight, HeartPulse, Activity, Pill, Thermometer, Stethoscope, Cross, Sun, Moon, Cloud, CloudRain, Snow, Wind, Leaf, Flower, Tree, Smartphone, Tablet, Laptop, Monitor, Keyboard, Mouse, Printer, HardDrive, Usb, Battery, Zap, Cpu, Coffee, Pizza, Apple, Wine, Utensils, ChefHat, Trophy, Target, Gamepad, Dumbbell, Football, Bicycle, Key, Fingerprint, ShieldLock, UserCheck, Scan, Users, UserPlus, MessageSquare, Chat, Group, Handshake, Book, Newspaper, Feather, Type, AlignLeft, AlignCenter, Bold, Italic, Underline, ArrowUpRight, ArrowDownLeft, CornerUpRight, CornerDownLeft, RotateCw, RotateCcw, Move, Maximize, Minimize, Circle, Square, Triangle, Hexagon, StarHalf, Palette, Droplet, Brush` dont use any  other icons from lucite-react other than this \n" +
@@ -47,6 +51,11 @@ const pro =
   "- **src/App.tsx** - Updated with new routes ( add the / routute with the opening page of your site and also update the route for the pages need to be updated)\n" +
   "- **src/types/index.ts** - TypeScript interfaces for data structures\n" +
   "\n" +
+  "## General rules to follow:\n" +
+  "- While writing strings if you need to use quotation mark inside a string dont use double use single one\n" +
+  "- While writing large paragraph dont use quotation marks to wrap the string use backticks  ``\n" +
+  "- white write string like  'Best pizza I've ever had!' dont use I've beacuse it will give error during build \n" +
+  "- Return only a single valid JSON object. All code file contents must be valid JSON strings with all quotes, newlines, and backslashes escaped. Do not use Markdown code blocks.n" +
   "### CONDITIONAL Files (create when needed):\n" +
   "- **src/components/[ComponentName].tsx** - Custom reusable components\n" +
   "- **src/hooks/[hookName].ts** - Custom hooks for API calls or logic\n" +
@@ -224,6 +233,8 @@ const pro =
   "\n" +
   "Generate focused, professional websites that accomplish the user's goals efficiently. Prioritize clarity and usability over extensive content unless specifically requested. ALWAYS follow the data fetching and error prevention rules to avoid runtime errors. ALWAYS provide files in the specified format and organization.";
 
+console.log(process.env.DATABASE_URL);
+
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -267,503 +278,682 @@ app.use("/api/users", userRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/messages", messageRoutes);
 
-app.post("/generateFrontend", async (req, res) => {
-  const { prompt } = req.body;
-  console.log(prompt, "prompt");
-  try {
-    const result = await anthropic.messages
-      .stream({
-        model: "claude-sonnet-4-0",
-        max_tokens: 20000,
-        temperature: 1,
-        system: pro,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: prompt,
-              },
-            ],
-          },
-        ],
-      })
-      .on("text", (text) => {
-        console.log(text);
-      });
+// app.post("/generateFrontend", async (req, res) => {
+//   const { prompt } = req.body;
+//   console.log(prompt, "prompt");
+//   try {
+//     const result = await anthropic.messages
+//       .stream({
+//         model: "claude-sonnet-4-0",
+//         max_tokens: 20000,
+//         temperature: 1,
+//         system: pro,
+//         messages: [
+//           {
+//             role: "user",
+//             content: [
+//               {
+//                 type: "text",
+//                 text: prompt,
+//               },
+//             ],
+//           },
+//         ],
+//       })
+//       .on("text", (text) => {
+//         console.log(text);
+//       });
 
-    console.log("reched here ");
-    const finalmessage = await result.finalMessage();
-    console.log("completed");
-    console.log(finalmessage);
-    res.json(finalmessage);
-  } catch (error) {}
-});
+//     console.log("reched here ");
+//     const finalmessage = await result.finalMessage();
+//     console.log("completed");
+//     console.log(finalmessage);
+//     res.json(finalmessage);
+//   } catch (error) {}
+// });
 
-app.post("/test", async (req, res) => {
-  const { message } = req.body;
-  const backendResult = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 15000,
-    temperature: 1,
-    system:
-      "you are an ai assistent you will answer what ever is asked to you , nothing less , nothing more",
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: message,
-          },
-        ],
-      },
-    ],
-  });
+// app.post("/test", async (req, res) => {
+//   const { message } = req.body;
+//   const backendResult = await anthropic.messages.create({
+//     model: "claude-sonnet-4-20250514",
+//     max_tokens: 15000,
+//     temperature: 1,
+//     system:
+//       "you are an ai assistent you will answer what ever is asked to you , nothing less , nothing more",
+//     messages: [
+//       {
+//         role: "user",
+//         content: [
+//           {
+//             type: "text",
+//             text: message,
+//           },
+//         ],
+//       },
+//     ],
+//   });
 
-  console.log(backendResult);
-});
+//   console.log(backendResult);
+// });
 //@ts-ignore
 
-app.post("/write-files", (req, res) => {
-  const { files }: { files: FileData[] } = req.body;
-  const baseDir = path.join(__dirname, "../react-base");
-  console.log(baseDir);
+// app.post("/write-files", (req, res) => {
+//   const { files }: { files: FileData[] } = req.body;
+//   const baseDir = path.join(__dirname, "../react-base");
+//   console.log(baseDir);
 
-  console.log("entered with", baseDir, files);
-  if (!baseDir || !Array.isArray(files)) {
-    return res.status(400).json({ error: "Invalid baseDir or files" });
+//   console.log("entered with", baseDir, files);
+//   if (!baseDir || !Array.isArray(files)) {
+//     return res.status(400).json({ error: "Invalid baseDir or files" });
+//   }
+
+//   try {
+//     files.forEach(({ path: filePath, content }) => {
+//       const fullPath = path.join(baseDir, filePath);
+//       const dir = path.dirname(fullPath);
+//       fs.mkdirSync(dir, { recursive: true }); // make directories if not exists
+//       fs.writeFileSync(fullPath, content, "utf8"); // write or overwrite
+//     });
+
+//     return res.status(200).json({ message: "Files written successfully" });
+//   } catch (err) {
+//     console.error("Error writing files:", err);
+//     return res.status(500).json({ error: "Failed to write files" });
+//   }
+//   console.log("created all files ");
+// });
+
+// app.post("/generateChanges", async (req, res) => {
+//   const { prompt } = req.body;
+
+//   try {
+//     console.log(`🚀 8-Step Modification Workflow: "${prompt}"`);
+
+//     const reactBasePath = path.join(__dirname, "../react-base");
+
+//     const intelligentModifier = new IntelligentFileModifier(
+//       anthropic,
+//       reactBasePath
+//     );
+//     const result = await intelligentModifier.processModification(prompt);
+
+//     if (result.success) {
+//       console.log(`✅ 8-Step workflow completed successfully!`);
+//       console.log(`📁 Modified files: ${result.selectedFiles?.join(", ")}`);
+//       console.log(`🎯 Approach: ${result.approach}`);
+//       console.log(
+//         `📊 Code ranges modified: ${result.modifiedRanges?.length || 0}`
+//       );
+
+//       res.json({
+//         success: true,
+//         workflow: "8-step-ast-modification",
+//         selectedFiles: result.selectedFiles,
+//         approach: result.approach,
+//         modifiedRanges: result.modifiedRanges?.length || 0,
+//         details: {
+//           step1: "Project tree + metadata analyzed",
+//           step2: `Claude selected ${
+//             result.selectedFiles?.length || 0
+//           } relevant files`,
+//           step3: "Files parsed with AST to create detailed trees",
+//           step4: "Claude pinpointed exact AST nodes needing modification",
+//           step5: "Code snippets extracted from target nodes",
+//           step6: "Claude modified the specific code snippets",
+//           step7: "Mapped AST nodes to exact source code ranges",
+//           step8: "Replaced code ranges with modified snippets",
+//         },
+//         modifications: result.modifiedRanges?.map((range) => ({
+//           file: range.file,
+//           linesModified: `${range.range.startLine}-${range.range.endLine}`,
+//           originalCode: range.range.originalCode.substring(0, 100) + "...", // Preview
+//           modifiedCode: range.modifiedCode.substring(0, 100) + "...", // Preview
+//         })),
+//       });
+//     } else {
+//       console.log(`❌ 8-Step workflow failed: ${result.error}`);
+//       res.status(400).json({
+//         success: false,
+//         workflow: "8-step-ast-modification",
+//         error: result.error || "Modification workflow failed",
+//         step: "Failed during workflow execution",
+//       });
+//     }
+//   } catch (error) {
+//     console.error("Error in 8-step workflow:", error);
+//     res.status(500).json({
+//       success: false,
+//       workflow: "8-step-ast-modification",
+//       error: "Internal server error during workflow",
+//       step: "System error",
+//     });
+//   }
+// });
+
+// app.post("/extractFilesToChange", async (req, res) => {
+//   try {
+//     const { pwd, analysisResult } = req.body;
+//     console.log(analysisResult.files_to_modify, "this is analysed result");
+//     const parsed = JSON.parse(analysisResult);
+//     const parser = new FileContentParser(pwd);
+//     const result = await parser.parseFromAnalysis(parsed);
+//     res.json(result);
+//   } catch (error) {}
+// });
+
+// app.post("/modify", async (req, res) => {
+//   const { files, prompt } = req.body;
+//   const filesData = JSON.stringify(files);
+//   const message = `${filesData} these are the files and these are the requested changes from the files ${prompt}  , give me strictly json format with [{ path: string;
+//   content: string}]; `;
+//   console.log(message);
+//   try {
+//     const result = await anthropic.messages.create({
+//       model: "claude-3-7-sonnet-latest",
+//       max_tokens: 15000,
+//       temperature: 1,
+//       system:
+//         "you are a helpful ai assistant that responce with only the things that is requested dont add any other thing no explanation nothing ",
+//       messages: [
+//         {
+//           role: "user",
+//           content: [
+//             {
+//               type: "text",
+//               text: message,
+//             },
+//           ],
+//         },
+//       ],
+//     });
+//     res.json(result);
+//   } catch (error) {}
+// });
+
+// app.get("/zipFolder", async (req, res) => {
+//   const zipFolderName = `project${Date.now()}.zip`;
+
+//   try {
+//     const zip = new AdmZip();
+
+//     const baseDir = path.join(__dirname, "../react-base");
+//     zip.addLocalFolder(baseDir);
+//     const outDir = path.join(__dirname, "../generated-sites", zipFolderName);
+//     zip.writeZip(outDir);
+//     const zipData = fs.readFileSync(outDir);
+//     const { data, error } = await supabase.storage
+//       .from("zipprojects")
+//       .upload(`archives/${zipFolderName}`, zipData, {
+//         contentType: "application/zip",
+//         upsert: true,
+//       });
+//     if (error) {
+//       console.log("supabase error ", error);
+//     }
+//     const publicUrl = await supabase.storage
+//       .from("zipprojects")
+//       .getPublicUrl(`archives/${zipFolderName}`);
+
+//     // adding into the queue the data {projectname , publicurl}
+
+//     //
+//     res.json(publicUrl);
+//   } catch (error) {
+//     console.log(error);
+//     res.json(error);
+//   }
+// });
+
+// app.post("/buildrun", async (req, res) => {
+//   const { zipUrl } = req.body;
+
+//   console.log(`Received zipUrl: ${zipUrl}`);
+
+//   const outputPath = path.resolve(__dirname, "../output");
+//   console.log(`Resolved output path: ${outputPath}`);
+
+//   const cleanDirectory = (dirPath: string) => {
+//     if (fs.existsSync(dirPath)) {
+//       try {
+//         const files = fs.readdirSync(dirPath);
+//         files.forEach((file) => {
+//           const filePath = path.join(dirPath, file);
+//           const stat = fs.statSync(filePath);
+
+//           if (stat.isDirectory()) {
+//             cleanDirectory(filePath);
+//             fs.rmdirSync(filePath);
+//           } else {
+//             fs.unlinkSync(filePath);
+//           }
+//         });
+//         console.log("✅ Output directory cleaned");
+//       } catch (error) {
+//         console.error("❌ Error cleaning directory:", error);
+//       }
+//     }
+//   };
+
+//   // Helper function to get MIME type
+//   const getMimeType = (filename: string) => {
+//     const ext = path.extname(filename).toLowerCase();
+//     const mimeTypes: { [key: string]: string } = {
+//       ".html": "text/html",
+//       ".css": "text/css",
+//       ".js": "application/javascript",
+//       ".json": "application/json",
+//       ".png": "image/png",
+//       ".jpg": "image/jpeg",
+//       ".jpeg": "image/jpeg",
+//       ".gif": "image/gif",
+//       ".svg": "image/svg+xml",
+//       ".ico": "image/x-icon",
+//       ".woff": "font/woff",
+//       ".woff2": "font/woff2",
+//       ".ttf": "font/ttf",
+//       ".eot": "application/vnd.ms-fontobject",
+//       ".webp": "image/webp",
+//       ".mp4": "video/mp4",
+//       ".webm": "video/webm",
+//     };
+//     return mimeTypes[ext] || "application/octet-stream";
+//   };
+
+//   // Helper function to upload files recursively
+//   const uploadDirectory = async (
+//     dirPath: string,
+//     bucketPath: string = "",
+//     buildId: string
+//   ) => {
+//     try {
+//       const files = fs.readdirSync(dirPath);
+
+//       for (const file of files) {
+//         const filePath = path.join(dirPath, file);
+//         const stat = fs.statSync(filePath);
+
+//         if (stat.isDirectory()) {
+//           await uploadDirectory(filePath, `${bucketPath}${file}/`, buildId);
+//         } else {
+//           const fileContent = fs.readFileSync(filePath);
+//           const mimeType = getMimeType(file);
+
+//           const { error } = await supabase.storage
+//             .from("static")
+//             .upload(`sites/${buildId}/${bucketPath}${file}`, fileContent, {
+//               contentType: mimeType,
+//               upsert: true,
+//             });
+
+//           if (error) {
+//             console.error(`❌ Failed to upload ${file}:`, error);
+//             throw error;
+//           }
+//         }
+//       }
+//     } catch (error) {
+//       console.error("❌ Error in uploadDirectory:", error);
+//       throw error;
+//     }
+//   };
+
+//   // Clean and ensure output directory exists
+//   cleanDirectory(outputPath);
+//   if (!fs.existsSync(outputPath)) {
+//     fs.mkdirSync(outputPath, { recursive: true });
+//   }
+
+//   // Step 1: Build the Docker image
+//   exec(
+//     `docker build --build-arg ZIP_URL="${zipUrl}" -t react-builder .`,
+//     { cwd: path.resolve(__dirname, "../") },
+//     //@ts-ignore
+//     (err, stdout, stderr) => {
+//       if (err) {
+//         console.error("❌ Build failed:", stderr);
+//         return res.status(500).json({ error: "Build failed", details: stderr });
+//       }
+
+//       console.log("✅ Build completed");
+
+//       // Step 2: Run the Docker container and mount the output folder
+//       exec(
+//         `docker run --rm -v "${outputPath}:/output" react-builder`,
+//         //@ts-ignore
+//         async (err, stdout, stderr) => {
+//           if (err) {
+//             console.error("❌ Run failed:", stderr);
+//             return res
+//               .status(500)
+//               .json({ error: "Run failed", details: stderr });
+//           }
+
+//           console.log("✅ Build output copied to:", outputPath);
+
+//           try {
+//             // Check if output directory has files
+//             const outputFiles = fs.readdirSync(outputPath);
+//             if (outputFiles.length === 0) {
+//               throw new Error("No build files found in output directory");
+//             }
+
+//             // Step 3: Upload files after Docker container completes
+//             const buildId = `build_${Date.now()}`;
+//             console.log(`📤 Starting upload for build: ${buildId}`);
+//             fs.writeFileSync(
+//               path.join(outputPath, "vercel.json"),
+//               JSON.stringify({
+//                 outputDirectory: ".",
+//                 headers: [
+//                   {
+//                     source: "/(.*)",
+//                     headers: [
+//                       {
+//                         // Setting the value to an empty string tells Vercel
+//                         // to remove this header from the response.
+//                         key: "X-Frame-Options",
+//                         value: "",
+//                       },
+//                     ],
+//                   },
+//                 ],
+//               })
+//             );
+//             const vercelUrl = await vercelDeploy({ outputPath });
+
+//             res.json({
+//               success: true,
+//               buildId,
+//               previewUrl: vercelUrl,
+//               message: "Build completed and deployed to Vercel successfully",
+//             });
+
+//             // // Upload individual files for iframe preview
+//             // await uploadDirectory(outputPath, "", buildId);
+//             // console.log("✅ Individual files uploaded");
+
+//             // // Also create ZIP for download
+//             // const zip = new AdmZip();
+//             // zip.addLocalFolder(outputPath);
+//             // const zipFileName = `${buildId}.zip`;
+
+//             // const tempZipPath = path.join(__dirname, "../temp", zipFileName);
+//             // if (!fs.existsSync(path.dirname(tempZipPath))) {
+//             //   fs.mkdirSync(path.dirname(tempZipPath), { recursive: true });
+//             // }
+
+//             // zip.writeZip(tempZipPath);
+//             // const zipData = fs.readFileSync(tempZipPath);
+
+//             // const { data, error } = await supabase.storage
+//             //   .from("static")
+//             //   .upload(`archives/${zipFileName}`, zipData, {
+//             //     contentType: "application/zip",
+//             //     upsert: true,
+//             //   });
+
+//             // if (error) {
+//             //   console.error("❌ Supabase ZIP upload error:", error);
+//             //   throw error;
+//             // }
+
+//             // console.log("✅ ZIP file uploaded");
+
+//             // // Get URLs
+//             // const { data: indexUrlData } = supabase.storage
+//             //   .from("static")
+//             //   .getPublicUrl(`sites/${buildId}/index.html`);
+
+//             // const { data: zipUrlData } = supabase.storage
+//             //   .from("static")
+//             //   .getPublicUrl(`archives/${zipFileName}`);
+
+//             // // Clean up temp zip file
+//             // fs.unlinkSync(tempZipPath);
+
+//             // console.log("✅ Build completed and uploaded successfully");
+
+//             // res.json({
+//             //   success: true,
+//             //   buildId: buildId,
+//             //   previewUrl: indexUrlData.publicUrl,
+//             //   downloadUrl: zipUrlData.publicUrl,
+//             //   message: "Build completed and uploaded successfully",
+//             // });
+//           } catch (uploadError) {
+//             console.error("❌ Upload process failed:", uploadError);
+//             res.status(500).json({
+//               error: "Upload process failed",
+//             });
+//           }
+//         }
+//       );
+//     }
+//   );
+// });
+interface GenerateProjectBody {
+  prompt: string;
+  projectId?: number;
+}
+//@ts-ignore
+app.post("/api/projects/generate", async (req: Request, res: Response) => {
+  const { prompt, projectId } = req.body;
+
+  if (!prompt) {
+    return res.status(400).json({ error: "Prompt is required" });
   }
 
-  try {
-    files.forEach(({ path: filePath, content }) => {
-      const fullPath = path.join(baseDir, filePath);
-      const dir = path.dirname(fullPath);
-      fs.mkdirSync(dir, { recursive: true }); // make directories if not exists
-      fs.writeFileSync(fullPath, content, "utf8"); // write or overwrite
-    });
+  const buildId = uuidv4();
+  console.log(`[${buildId}] Starting Azure build for prompt: "${prompt}"`);
 
-    return res.status(200).json({ message: "Files written successfully" });
-  } catch (err) {
-    console.error("Error writing files:", err);
-    return res.status(500).json({ error: "Failed to write files" });
-  }
-  console.log("created all files ");
-});
-
-app.post("/generateChanges", async (req, res) => {
-  const { prompt } = req.body;
+  const sourceTemplateDir = path.join(__dirname, "../react-base");
+  const tempBuildDir = path.join(__dirname, "../temp-builds", buildId);
 
   try {
-    console.log(`🚀 8-Step Modification Workflow: "${prompt}"`);
+    // 1. Copy template and generate code
+    await fs.promises.mkdir(tempBuildDir, { recursive: true });
+    await fs.promises.cp(sourceTemplateDir, tempBuildDir, { recursive: true });
 
-    const reactBasePath = path.join(__dirname, "../react-base");
-
-    const intelligentModifier = new IntelligentFileModifier(
-      anthropic,
-      reactBasePath
-    );
-    const result = await intelligentModifier.processModification(prompt);
-
-    if (result.success) {
-      console.log(`✅ 8-Step workflow completed successfully!`);
-      console.log(`📁 Modified files: ${result.selectedFiles?.join(", ")}`);
-      console.log(`🎯 Approach: ${result.approach}`);
-      console.log(
-        `📊 Code ranges modified: ${result.modifiedRanges?.length || 0}`
-      );
-
-      res.json({
-        success: true,
-        workflow: "8-step-ast-modification",
-        selectedFiles: result.selectedFiles,
-        approach: result.approach,
-        modifiedRanges: result.modifiedRanges?.length || 0,
-        details: {
-          step1: "Project tree + metadata analyzed",
-          step2: `Claude selected ${
-            result.selectedFiles?.length || 0
-          } relevant files`,
-          step3: "Files parsed with AST to create detailed trees",
-          step4: "Claude pinpointed exact AST nodes needing modification",
-          step5: "Code snippets extracted from target nodes",
-          step6: "Claude modified the specific code snippets",
-          step7: "Mapped AST nodes to exact source code ranges",
-          step8: "Replaced code ranges with modified snippets",
-        },
-        modifications: result.modifiedRanges?.map((range) => ({
-          file: range.file,
-          linesModified: `${range.range.startLine}-${range.range.endLine}`,
-          originalCode: range.range.originalCode.substring(0, 100) + "...", // Preview
-          modifiedCode: range.modifiedCode.substring(0, 100) + "...", // Preview
-        })),
-      });
-    } else {
-      console.log(`❌ 8-Step workflow failed: ${result.error}`);
-      res.status(400).json({
-        success: false,
-        workflow: "8-step-ast-modification",
-        error: result.error || "Modification workflow failed",
-        step: "Failed during workflow execution",
-      });
-    }
-  } catch (error) {
-    console.error("Error in 8-step workflow:", error);
-    res.status(500).json({
-      success: false,
-      workflow: "8-step-ast-modification",
-      error: "Internal server error during workflow",
-      step: "System error",
-    });
-  }
-});
-
-app.post("/extractFilesToChange", async (req, res) => {
-  try {
-    const { pwd, analysisResult } = req.body;
-    console.log(analysisResult.files_to_modify, "this is analysed result");
-    const parsed = JSON.parse(analysisResult);
-    const parser = new FileContentParser(pwd);
-    const result = await parser.parseFromAnalysis(parsed);
-    res.json(result);
-  } catch (error) {}
-});
-
-app.post("/modify", async (req, res) => {
-  const { files, prompt } = req.body;
-  const filesData = JSON.stringify(files);
-  const message = `${filesData} these are the files and these are the requested changes from the files ${prompt}  , give me strictly json format with [{ path: string;
-  content: string}]; `;
-  console.log(message);
-  try {
-    const result = await anthropic.messages.create({
-      model: "claude-3-7-sonnet-latest",
-      max_tokens: 15000,
+    console.log(`[${buildId}] Generating code from LLM...`);
+    const frontendResult = await anthropic.messages.create({
+      model: "claude-sonnet-4-0",
+      max_tokens: 20000,
       temperature: 1,
-      system:
-        "you are a helpful ai assistant that responce with only the things that is requested dont add any other thing no explanation nothing ",
+      system: pro,
       messages: [
         {
           role: "user",
-          content: [
-            {
-              type: "text",
-              text: message,
-            },
-          ],
+          content: [{ type: "text", text: prompt }],
         },
       ],
     });
-    res.json(result);
-  } catch (error) {}
-});
 
-app.get("/zipFolder", async (req, res) => {
-  const zipFolderName = `project${Date.now()}.zip`;
-  try {
+    const parsedFrontend = parseFrontendCode(
+      (frontendResult.content[0] as any).text
+    );
+
+    // Write generated files
+    for (const file of parsedFrontend.codeFiles) {
+      const fullPath = path.join(tempBuildDir, file.path);
+      await fs.promises.mkdir(path.dirname(fullPath), { recursive: true });
+      await fs.promises.writeFile(fullPath, file.content, "utf8");
+    }
+
+    // 2. Create zip and upload to Azure (instead of Supabase)
+    console.log(`[${buildId}] Creating zip and uploading to Azure...`);
     const zip = new AdmZip();
-    const baseDir = path.join(__dirname, "../react-base");
-    zip.addLocalFolder(baseDir);
-    const outDir = path.join(__dirname, "../generated-sites", zipFolderName);
-    zip.writeZip(outDir);
-    const zipData = fs.readFileSync(outDir);
-    const { data, error } = await supabase.storage
-      .from("zipprojects")
-      .upload(`archives/${zipFolderName}`, zipData, {
-        contentType: "application/zip",
-        upsert: true,
-      });
-    if (error) {
-      console.log("supabase error ", error);
+    zip.addLocalFolder(tempBuildDir);
+    const zipBuffer = zip.toBuffer();
+
+    const zipBlobName = `${buildId}/source.zip`;
+    const zipUrl = await uploadToAzureBlob(
+      process.env.AZURE_STORAGE_CONNECTION_STRING!,
+      "source-zips",
+      zipBlobName,
+      zipBuffer
+    );
+    console.log(zipUrl, "this is the url that is send for deployment");
+    // 3. Trigger Azure Container Job (instead of local Docker + Vercel)
+    console.log(`[${buildId}] Triggering Azure Container Job...`);
+
+    const DistUrl = await triggerAzureContainerJob(zipUrl, buildId, {
+      resourceGroup: process.env.AZURE_RESOURCE_GROUP!,
+      containerAppEnv: process.env.AZURE_CONTAINER_APP_ENV!,
+      acrName: process.env.AZURE_ACR_NAME!,
+      storageConnectionString: process.env.AZURE_STORAGE_CONNECTION_STRING!,
+      storageAccountName: process.env.AZURE_STORAGE_ACCOUNT_NAME!,
+    });
+
+    const urls = JSON.parse(DistUrl);
+    console.log(urls, "urll");
+    //console.log(`[${buildId}] Build completed: ${deployUrl}`);
+    // Update project if needed
+    if (projectId) {
+      // Update your database with the new URL
     }
-    const publicUrl = await supabase.storage
-      .from("zipprojects")
-      .getPublicUrl(`archives/${zipFolderName}`);
 
-    // adding into the queue the data {projectname , publicurl}
-
-    //
-    res.json(publicUrl);
+    res.json({
+      success: true,
+      previewUrl: urls.previewUrl, // SWA preview URL
+      downloadUrl: urls.downloadUrl, // ZIP download URL
+      buildId: buildId,
+      hosting: "Azure Static Web Apps",
+      features: [
+        "Global CDN",
+        "Auto SSL/HTTPS",
+        "Custom domains support",
+        "Staging environments",
+      ],
+    });
   } catch (error) {
-    console.log(error);
-    res.json(error);
+    console.error(`[${buildId}] Build process failed:`, error);
+    res.status(500).json({
+      success: false,
+      error: "Build process failed",
+      details: error instanceof Error ? error.message : "Unknown error",
+    });
+  } finally {
+    // Clean up temp directory
+    await fs.promises
+      .rm(tempBuildDir, { recursive: true, force: true })
+      .catch(() => {});
   }
 });
 
-app.post("/buildrun", async (req, res) => {
-  const { zipUrl } = req.body;
+// async function runBuildAndDeploy(
+//   zipUrl: string,
+//   outputDir: string
+// ): Promise<string> {
+//   const uniqueImageTag = `react-builder-${uuidv4()}`;
+//   console.log(`[Build] Using unique image tag: ${uniqueImageTag}`);
 
-  console.log(`Received zipUrl: ${zipUrl}`);
+//   try {
+//     // Ensure output directory exists and is clean
+//     if (fs.existsSync(outputDir)) {
+//       await fs.promises.rm(outputDir, { recursive: true, force: true });
+//     }
+//     await fs.promises.mkdir(outputDir, { recursive: true });
+//     console.log(`[Build] Prepared clean output directory: ${outputDir}`);
 
-  const outputPath = path.resolve(__dirname, "../output");
-  console.log(`Resolved output path: ${outputPath}`);
+//     // Build the image with the unique tag
+//     console.log(`[Build] Building image ${uniqueImageTag}...`);
+//     await execPromise(
+//       `docker build --build-arg ZIP_URL="${zipUrl}" -t ${uniqueImageTag} .`,
+//       { cwd: path.resolve(__dirname, "../") }
+//     );
+//     console.log("✅ Docker Build completed");
 
-  const cleanDirectory = (dirPath: string) => {
-    if (fs.existsSync(dirPath)) {
-      try {
-        const files = fs.readdirSync(dirPath);
-        files.forEach((file) => {
-          const filePath = path.join(dirPath, file);
-          const stat = fs.statSync(filePath);
+//     // Run the container using the same unique tag and mount the correct output directory
+//     console.log(`[Build] Running container for ${uniqueImageTag}...`);
+//     await execPromise(
+//       `docker run --rm -v "${outputDir}:/output" ${uniqueImageTag}`
+//     );
+//     console.log(`✅ Docker Run completed, output copied to: ${outputDir}`);
 
-          if (stat.isDirectory()) {
-            cleanDirectory(filePath);
-            fs.rmdirSync(filePath);
-          } else {
-            fs.unlinkSync(filePath);
-          }
-        });
-        console.log("✅ Output directory cleaned");
-      } catch (error) {
-        console.error("❌ Error cleaning directory:", error);
-      }
-    }
-  };
+//     // Verify files were copied
+//     const outputFiles = await fs.promises.readdir(outputDir);
+//     console.log(
+//       `[Build] Output directory contains ${outputFiles.length} files:`,
+//       outputFiles
+//     );
 
-  // Helper function to get MIME type
-  const getMimeType = (filename: string) => {
-    const ext = path.extname(filename).toLowerCase();
-    const mimeTypes: { [key: string]: string } = {
-      ".html": "text/html",
-      ".css": "text/css",
-      ".js": "application/javascript",
-      ".json": "application/json",
-      ".png": "image/png",
-      ".jpg": "image/jpeg",
-      ".jpeg": "image/jpeg",
-      ".gif": "image/gif",
-      ".svg": "image/svg+xml",
-      ".ico": "image/x-icon",
-      ".woff": "font/woff",
-      ".woff2": "font/woff2",
-      ".ttf": "font/ttf",
-      ".eot": "application/vnd.ms-fontobject",
-      ".webp": "image/webp",
-      ".mp4": "video/mp4",
-      ".webm": "video/webm",
-    };
-    return mimeTypes[ext] || "application/octet-stream";
-  };
+//     if (outputFiles.length === 0) {
+//       throw new Error("No files were copied to output directory");
+//     }
 
-  // Helper function to upload files recursively
-  const uploadDirectory = async (
-    dirPath: string,
-    bucketPath: string = "",
-    buildId: string
-  ) => {
-    try {
-      const files = fs.readdirSync(dirPath);
+//     // Add vercel.json configuration
+//     const vercelConfig = {
+//       outputDirectory: ".",
+//       headers: [
+//         {
+//           source: "/(.*)",
+//           headers: [{ key: "X-Frame-Options", value: "" }],
+//         },
+//       ],
+//     };
+//     await fs.promises.writeFile(
+//       path.join(outputDir, "vercel.json"),
+//       JSON.stringify(vercelConfig, null, 2)
+//     );
+//     console.log("✅ Added vercel.json configuration");
 
-      for (const file of files) {
-        const filePath = path.join(dirPath, file);
-        const stat = fs.statSync(filePath);
-
-        if (stat.isDirectory()) {
-          await uploadDirectory(filePath, `${bucketPath}${file}/`, buildId);
-        } else {
-          const fileContent = fs.readFileSync(filePath);
-          const mimeType = getMimeType(file);
-
-          const { error } = await supabase.storage
-            .from("static")
-            .upload(`sites/${buildId}/${bucketPath}${file}`, fileContent, {
-              contentType: mimeType,
-              upsert: true,
-            });
-
-          if (error) {
-            console.error(`❌ Failed to upload ${file}:`, error);
-            throw error;
-          }
-        }
-      }
-    } catch (error) {
-      console.error("❌ Error in uploadDirectory:", error);
-      throw error;
-    }
-  };
-
-  // Clean and ensure output directory exists
-  cleanDirectory(outputPath);
-  if (!fs.existsSync(outputPath)) {
-    fs.mkdirSync(outputPath, { recursive: true });
-  }
-
-  // Step 1: Build the Docker image
-  exec(
-    `docker build --build-arg ZIP_URL="${zipUrl}" -t react-builder .`,
-    { cwd: path.resolve(__dirname, "../") },
-    //@ts-ignore
-    (err, stdout, stderr) => {
-      if (err) {
-        console.error("❌ Build failed:", stderr);
-        return res.status(500).json({ error: "Build failed", details: stderr });
-      }
-
-      console.log("✅ Build completed");
-
-      // Step 2: Run the Docker container and mount the output folder
-      exec(
-        `docker run --rm -v "${outputPath}:/output" react-builder`,
-        //@ts-ignore
-        async (err, stdout, stderr) => {
-          if (err) {
-            console.error("❌ Run failed:", stderr);
-            return res
-              .status(500)
-              .json({ error: "Run failed", details: stderr });
-          }
-
-          console.log("✅ Build output copied to:", outputPath);
-
-          try {
-            // Check if output directory has files
-            const outputFiles = fs.readdirSync(outputPath);
-            if (outputFiles.length === 0) {
-              throw new Error("No build files found in output directory");
-            }
-
-            // Step 3: Upload files after Docker container completes
-            const buildId = `build_${Date.now()}`;
-            console.log(`📤 Starting upload for build: ${buildId}`);
-            fs.writeFileSync(
-              path.join(outputPath, "vercel.json"),
-              JSON.stringify({
-                outputDirectory: ".",
-                headers: [
-                  {
-                    source: "/(.*)",
-                    headers: [
-                      {
-                        // Setting the value to an empty string tells Vercel
-                        // to remove this header from the response.
-                        key: "X-Frame-Options",
-                        value: "",
-                      },
-                    ],
-                  },
-                ],
-              })
-            );
-            const vercelUrl = await vercelDeploy({ outputPath });
-
-            res.json({
-              success: true,
-              buildId,
-              previewUrl: vercelUrl,
-              message: "Build completed and deployed to Vercel successfully",
-            });
-
-            // // Upload individual files for iframe preview
-            // await uploadDirectory(outputPath, "", buildId);
-            // console.log("✅ Individual files uploaded");
-
-            // // Also create ZIP for download
-            // const zip = new AdmZip();
-            // zip.addLocalFolder(outputPath);
-            // const zipFileName = `${buildId}.zip`;
-
-            // const tempZipPath = path.join(__dirname, "../temp", zipFileName);
-            // if (!fs.existsSync(path.dirname(tempZipPath))) {
-            //   fs.mkdirSync(path.dirname(tempZipPath), { recursive: true });
-            // }
-
-            // zip.writeZip(tempZipPath);
-            // const zipData = fs.readFileSync(tempZipPath);
-
-            // const { data, error } = await supabase.storage
-            //   .from("static")
-            //   .upload(`archives/${zipFileName}`, zipData, {
-            //     contentType: "application/zip",
-            //     upsert: true,
-            //   });
-
-            // if (error) {
-            //   console.error("❌ Supabase ZIP upload error:", error);
-            //   throw error;
-            // }
-
-            // console.log("✅ ZIP file uploaded");
-
-            // // Get URLs
-            // const { data: indexUrlData } = supabase.storage
-            //   .from("static")
-            //   .getPublicUrl(`sites/${buildId}/index.html`);
-
-            // const { data: zipUrlData } = supabase.storage
-            //   .from("static")
-            //   .getPublicUrl(`archives/${zipFileName}`);
-
-            // // Clean up temp zip file
-            // fs.unlinkSync(tempZipPath);
-
-            // console.log("✅ Build completed and uploaded successfully");
-
-            // res.json({
-            //   success: true,
-            //   buildId: buildId,
-            //   previewUrl: indexUrlData.publicUrl,
-            //   downloadUrl: zipUrlData.publicUrl,
-            //   message: "Build completed and uploaded successfully",
-            // });
-          } catch (uploadError) {
-            console.error("❌ Upload process failed:", uploadError);
-            res.status(500).json({
-              error: "Upload process failed",
-            });
-          }
-        }
-      );
-    }
-  );
-});
-
-const vercelDeploy = ({ outputPath }: { outputPath: string }) => {
+//     // Deploy to Vercel
+//     //@ts-ignore
+//     return await vercelDeploy({ outputPath: outputDir });
+//   } catch (error) {
+//     console.error("❌ Build and Deploy pipeline failed:", error);
+//     throw error;
+//   } finally {
+//     // Clean up the ephemeral Docker image to prevent clutter
+//     console.log(`[Build] Cleaning up Docker image: ${uniqueImageTag}`);
+//     try {
+//       await execPromise(`docker rmi ${uniqueImageTag}`);
+//       console.log(`✅ Docker image ${uniqueImageTag} removed.`);
+//     } catch (cleanupError) {
+//       console.warn(
+//         `⚠️ Failed to clean up Docker image ${uniqueImageTag}:`,
+//         cleanupError
+//       );
+//     }
+//   }
+// }
+function execPromise(
+  command: string,
+  options?: any
+): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    exec(`vercel --prod --yes --cwd "${outputPath}"`, (err, stdout, stderr) => {
-      if (err) {
-        console.error("❌ Vercel deploy failed:", stderr);
-        reject(stderr);
+    exec(command, options, (error, stdout, stderr) => {
+      if (error) {
+        reject(error);
       } else {
-        console.log("✅ Vercel deploy output:", stdout);
-        // Extract the final URL from the output
-        const match = stdout.match(/https?:\/\/[^\s]+\.vercel\.app/);
-        const deployedUrl = match ? match[0] : null;
-        if (deployedUrl) {
-          resolve(deployedUrl);
-        } else {
-          reject("❌ No URL found in Vercel output");
-        }
+        //@ts-ignore
+        resolve({ stdout, stderr });
       }
     });
   });
-};
-
-// async function vercelDeploy({ outputPath }: { outputPath: string }) {
-//   try {
-//     const result = execSync(
-//       `vercel deploy --prebuilt --yes --cwd ${outputPath}`
-//     ).toString();
-//     const match = result.match(/https:\/\/[^\s]+\.vercel\.app/);
-//     if (!match)
-//       throw new Error("Could not extract deployment URL from Vercel output");
-//     return match[0];
-//   } catch (err) {
-//     console.error("❌ Vercel deploy error:", err);
-//     throw err;
-//   }
-// }
-
-//@ts-ignore
+}
+// const vercelDeploy = ({ outputPath }: { outputPath: string }) => {
+//   console.log(outputPath, "this is the path which the vercel with deploy ");
+//   return new Promise((resolve, reject) => {
+//     exec(`vercel --prod --yes --cwd "${outputPath}"`, (err, stdout, stderr) => {
+//       if (err) {
+//         console.error("❌ Vercel deploy failed:", stderr);
+//         reject(stderr);
+//       } else {
+//         console.log("✅ Vercel deploy output:", stdout);
+//         // Extract the final URL from the output
+//         const match = stdout.match(/https?:\/\/[^\s]+\.vercel\.app/);
+//         const deployedUrl = match ? match[0] : null;
+//         if (deployedUrl) {
+//           resolve(deployedUrl);
+//         } else {
+//           reject("❌ No URL found in Vercel output");
+//         }
+//       }
+//     });
+//   });
+// };
 
 app.listen(3000, () => {
   console.log("Server is running on port 3000");
 });
-
-// async function main() {
-//   const responseData = JSON.stringify(res, null, 2);
-//   fs.writeFileSync("claude-response.json", responseData);
-//   console.log("Response has been saved to claude-response.json");
-// }
-// main();
