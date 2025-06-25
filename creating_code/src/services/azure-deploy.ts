@@ -1,5 +1,5 @@
 // This file contains helper functions for Azure deployment
-
+// fuck this shitttttttttt
 import { BlobServiceClient } from "@azure/storage-blob";
 import { exec } from "child_process";
 import { promisify } from "util";

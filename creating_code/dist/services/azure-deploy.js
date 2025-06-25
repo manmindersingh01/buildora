@@ -1,5 +1,4 @@
 "use strict";
-// This file contains helper functions for Azure deployment
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -12,6 +11,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.uploadToAzureBlob = uploadToAzureBlob;
 exports.triggerAzureContainerJob = triggerAzureContainerJob;
+// This file contains helper functions for Azure deployment
+// fuck this shitttttttttt
 const storage_blob_1 = require("@azure/storage-blob");
 const child_process_1 = require("child_process");
 const util_1 = require("util");
