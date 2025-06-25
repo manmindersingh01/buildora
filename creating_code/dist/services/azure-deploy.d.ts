@@ -6,3 +6,7 @@ export declare function triggerAzureContainerJob(sourceZipUrl: string, buildId: 
     storageConnectionString: string;
     storageAccountName: string;
 }): Promise<string>;
+export declare function deployToSWA(zipUrl: string, buildId: string): Promise<{
+    previewUrl: string;
+    downloadUrl: string;
+}>;

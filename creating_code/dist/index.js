@@ -355,14 +355,15 @@ app.post("/api/projects/generate", (req, res) => __awaiter(void 0, void 0, void 
         });
         const urls = JSON.parse(DistUrl);
         console.log(urls, "urll");
-        //console.log(`[${buildId}] Build completed: ${deployUrl}`);
-        // Update project if needed
+        const builtZipUrl = urls.downloadUrl;
+        console.log(`[${buildId}] Deploying to SWA...`);
+        const { previewUrl, downloadUrl } = yield (0, azure_deploy_1.deployToSWA)(builtZipUrl, buildId);
         if (projectId) {
             // Update your database with the new URL
         }
         res.json({
             success: true,
-            previewUrl: urls.previewUrl, // SWA preview URL
+            previewUrl: previewUrl, // SWA preview URL
             downloadUrl: urls.downloadUrl, // ZIP download URL
             buildId: buildId,
             hosting: "Azure Static Web Apps",

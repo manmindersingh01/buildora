@@ -24,6 +24,7 @@ import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
 import {
   uploadToAzureBlob,
   triggerAzureContainerJob,
+  deployToSWA,
 } from "./services/azure-deploy";
 app.use(cors());
 app.use(express.json());
@@ -806,15 +807,17 @@ app.post("/api/projects/generate", async (req: Request, res: Response) => {
 
     const urls = JSON.parse(DistUrl);
     console.log(urls, "urll");
-    //console.log(`[${buildId}] Build completed: ${deployUrl}`);
-    // Update project if needed
+    const builtZipUrl = urls.downloadUrl;
+    console.log(`[${buildId}] Deploying to SWA...`);
+    const { previewUrl, downloadUrl } = await deployToSWA(builtZipUrl, buildId);
+
     if (projectId) {
       // Update your database with the new URL
     }
 
     res.json({
       success: true,
-      previewUrl: urls.previewUrl, // SWA preview URL
+      previewUrl: previewUrl, // SWA preview URL
       downloadUrl: urls.downloadUrl, // ZIP download URL
       buildId: buildId,
       hosting: "Azure Static Web Apps",
