@@ -63,12 +63,13 @@ echo "✅ Build output found in: $BUILD_DIR"
 echo "📁 Build directory contents:"
 ls -la "$BUILD_DIR"
 
-# Test Azure CLI connection
+# Test Azure CLI connection by listing containers (simpler test)
 echo "🔐 Testing Azure connection..."
-az storage account show-connection-string --connection-string "$STORAGE_CONNECTION_STRING" > /dev/null || { 
+az storage container list --connection-string "$STORAGE_CONNECTION_STRING" --query "[0].name" > /dev/null || { 
   echo "❌ Azure CLI connection failed"
   exit 1
 }
+echo "✅ Azure connection successful"
 
 # Upload to $web for static hosting
 echo "🌐 Uploading to Azure Static Website..."

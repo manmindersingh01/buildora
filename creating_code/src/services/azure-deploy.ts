@@ -42,7 +42,7 @@ export async function triggerAzureContainerJob(
     --name ${jobName} \
     --resource-group ${config.resourceGroup} \
     --environment ${config.containerAppEnv} \
- --image ${config.acrName}.azurecr.io/react-builder:${imageTag} \
+ --image ${config.acrName}.azurecr.io/react-builder:fresh3 \
     --cpu 2.0 --memory 4.0Gi \
     --trigger-type Manual \
     --registry-server ${config.acrName}.azurecr.io \
