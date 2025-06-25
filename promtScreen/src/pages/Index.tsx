@@ -1,4 +1,10 @@
-import React, { useContext, useEffect, useState, useCallback, useMemo } from "react";
+import React, {
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
 import axios from "axios";
 import {
   SignedIn,
@@ -223,6 +229,8 @@ const Index = () => {
           `${BASE_URL}/api/users`,
           userData
         );
+        console.log(userResponse.data);
+
         setDbUser(userResponse.data);
 
         // Fetch user's projects
@@ -230,6 +238,8 @@ const Index = () => {
         const projectsResponse = await axios.get<Project[]>(
           `${BASE_URL}/api/projects/user/${userResponse.data.id}`
         );
+        console.log(projectsResponse.data);
+
         setProjects(projectsResponse.data);
       } catch (error) {
         console.error("Error syncing user or fetching projects:", error);

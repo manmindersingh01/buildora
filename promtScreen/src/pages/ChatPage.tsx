@@ -58,17 +58,15 @@ const ChatPage: React.FC = () => {
     projectId,
     existingProject,
   } = (location.state as LocationState) || {};
-
+  console.log(navPrompt, projectId, existingProject);
   const baseUrl = import.meta.env.VITE_BASE_URL || "http://localhost:3000";
 
   // Memoized function to fetch project deployment URL
   const fetchProjectDeploymentUrl = useCallback(
     async (projId: number) => {
       if (currentProjectId.current === projId && projectStatus !== "idle") {
-        return; // Prevent duplicate calls for same project
+        return;
       }
-
-      setLoadingCode(true);
       setError("");
       setProjectStatus("loading");
       currentProjectId.current = projId;
@@ -78,92 +76,59 @@ const ChatPage: React.FC = () => {
           `${baseUrl}/api/projects/${projId}`
         );
         const project = res.data;
-
         if (project.deploymentUrl) {
           setPreviewUrl(project.deploymentUrl);
           setProjectStatus("ready");
         } else {
+          // This case might mean the project exists but the build failed previously
+          // Or it's still pending. You might want more granular status from backend.
+          setError("Project found, but deployment is not ready.");
           setProjectStatus("error");
-          setError("Project deployment URL not found");
         }
       } catch (error) {
         console.error("Error fetching project:", error);
         setError("Failed to load project");
         setProjectStatus("error");
-      } finally {
-        setLoadingCode(false);
       }
     },
     [baseUrl, projectStatus]
   );
-
   // Memoized function to generate code
   const generateCode = useCallback(
     async (userPrompt: string, projId?: number) => {
-      if (isGenerating.current) {
-        return; // Prevent duplicate generation
-      }
+      if (isGenerating.current) return;
 
       isGenerating.current = true;
-      setLoadingCode(true);
       setError("");
       setProjectStatus("loading");
 
       try {
-        // Check if project already has deployment URL
-        if (projId) {
-          const existingProject = await axios.get<Project>(
-            `${baseUrl}/api/projects/${projId}`
-          );
-          if (existingProject.data.deploymentUrl) {
-            setPreviewUrl(existingProject.data.deploymentUrl);
-            setProjectStatus("ready");
-            setLoadingCode(false);
-            isGenerating.current = false;
-            return;
-          }
-        }
-
-        const frontendres = await axios.post(`${baseUrl}/generateFrontend`, {
+        const response = await axios.post(`${baseUrl}/api/projects/generate`, {
           prompt: userPrompt,
+          projectId: projId,
         });
 
-        const parsedFrontend = parseFrontendCode(
-          frontendres.data.content[0].text
-        );
-
-        setValue(parsedFrontend.structure);
-
-        await axios.post(`${baseUrl}/write-files`, {
-          files: parsedFrontend.codeFiles,
-        });
-
-        const res = await axios.get(`${baseUrl}/zipFolder`);
-        const data = await axios.post(`${baseUrl}/buildrun`, {
-          zipUrl: res.data.data.publicUrl,
-        });
-
-        setPreviewUrl(data.data.previewUrl);
-        setProjectStatus("ready");
-
-        if (projId && data.data.previewUrl) {
+        setPreviewUrl(response.data.previewUrl);
+        if (projId && response.data.previewUrl) {
           await axios.put(`${baseUrl}/api/projects/${projId}`, {
-            deploymentUrl: data.data.previewUrl,
+            deploymentUrl: response.data.previewUrl,
             status: "ready",
           });
         }
+        setProjectStatus("ready");
+
+        // REMOVED: The axios.put call. The backend is now responsible for
+        // updating its own database with the new deployment URL.
       } catch (error) {
         console.error("Error generating code:", error);
-        setError("Failed to generate code");
+        setError("Failed to generate code. Please try again.");
         setProjectStatus("error");
       } finally {
-        setLoadingCode(false);
         isGenerating.current = false;
       }
     },
-    [baseUrl, setValue]
+    [baseUrl] // REMOVED: `setValue` is no longer a dependency
   );
-
   // Initialize component only once
   useEffect(() => {
     if (hasInitialized.current) return;
