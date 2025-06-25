@@ -35,14 +35,13 @@ export async function triggerAzureContainerJob(
   }
 ): Promise<string> {
   const jobName = `build-${buildId.substring(0, 8)}`;
-  const imageTag = process.env.DOCKER_IMAGE_TAG || "latest";
 
-  // Create a one-time job with SWA deployment token
+  // Create job with SWA deployment
   await execPromise(`az containerapp job create \
     --name ${jobName} \
     --resource-group ${config.resourceGroup} \
     --environment ${config.containerAppEnv} \
- --image ${config.acrName}.azurecr.io/react-builder:fresh3 \
+    --image ${config.acrName}.azurecr.io/react-builder-swa:v2 \
     --cpu 2.0 --memory 4.0Gi \
     --trigger-type Manual \
     --registry-server ${config.acrName}.azurecr.io \
@@ -60,7 +59,7 @@ export async function triggerAzureContainerJob(
     --replica-completion-count 1 \
     --replica-retry-limit 0`);
 
-  // Start the job
+  // Start and monitor job (same as before)
   await execPromise(
     `az containerapp job start --name ${jobName} --resource-group ${config.resourceGroup}`
   );
@@ -78,20 +77,18 @@ export async function triggerAzureContainerJob(
     console.log(`Job status: ${status}`);
 
     if (status === "Succeeded") {
-      // Clean up the job
       await execPromise(
         `az containerapp job delete --name ${jobName} --resource-group ${config.resourceGroup} --yes`
       );
 
-      // Fetch deployment info from blob storage
-      const deploymentInfo = await fetchDeploymentInfo(
-        config.storageAccountName,
-        buildId
-      );
+      // Return SWA URLs
+      const envName = `build-${buildId.substring(0, 8)}`;
+      const previewUrl = `https://${envName}--${process.env.AZURE_SWA_DEFAULT_HOSTNAME}`;
+      const downloadUrl = `https://${config.storageAccountName}.blob.core.windows.net/build-outputs/${buildId}/build_${buildId}.zip`;
 
       return JSON.stringify({
-        previewUrl: `https://reactstore0796.z13.web.core.windows.net/${buildId}/`,
-        downloadUrl: `https://reactstore0796.blob.core.windows.net/build-outputs/${buildId}/build_${buildId}.zip`,
+        previewUrl,
+        downloadUrl,
       });
     } else if (status === "Failed") {
       throw new Error("Container job failed");

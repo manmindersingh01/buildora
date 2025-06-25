@@ -1,6 +1,7 @@
-FROM node:18
+# Explicitly use AMD64 base image
+FROM --platform=linux/amd64 node:18
 
-# Install dependencies and Azure CLI
+# Install dependencies, Azure CLI, and SWA CLI
 RUN apt-get update && \
     apt-get install -y \
     curl \
@@ -17,13 +18,16 @@ RUN apt-get update && \
     apt-get install -y azure-cli && \
     rm -rf /var/lib/apt/lists/*
 
+# Install SWA CLI globally
+RUN npm install -g @azure/static-web-apps-cli
+
 WORKDIR /app
 
-# Copy and make executable
-COPY build-azure.sh /app/build-azure.sh
-RUN chmod +x /app/build-azure.sh
+# Copy the SWA build script
+COPY build-azure-swa.sh /app/build-azure-swa.sh
+RUN chmod +x /app/build-azure-swa.sh
 
-# Test Azure CLI is installed
-RUN az --version
+# Test installations
+RUN az --version && swa --version
 
-CMD ["/app/build-azure.sh"]
+CMD ["/app/build-azure-swa.sh"]

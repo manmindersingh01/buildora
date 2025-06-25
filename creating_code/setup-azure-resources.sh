@@ -37,7 +37,7 @@ az storage blob service-properties update \
   --static-website \
   --index-document index.html
 
-# Create container for source zips
+# Create container for source zip
 az storage container create \
   --name "source-zips" \
   --account-name $STORAGE_ACCOUNT \
